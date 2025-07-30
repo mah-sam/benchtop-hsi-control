@@ -1,0 +1,97 @@
+{
+    "wizard_version": "1.0",
+    "creation_date": "2025-07-15 10:33:23",
+    "calibration_steps": {
+        "straightening": {
+            "analysis_summary": {
+                "detected_lines": 101,
+                "average_tilt_degrees": 89.93913278400267,
+                "average_x_position_pixels": 846.2574257425742
+            },
+            "rotation_correction": {
+                "rotation_matrix": [
+                    [
+                        0.9999994357240056,
+                        0.0010623331258596336,
+                        -1.0872513022620252
+                    ],
+                    [
+                        -0.0010623331258596336,
+                        0.9999994357240056,
+                        1.0884069394985045
+                    ]
+                ],
+                "translation_matrix": [
+                    [
+                        1.0,
+                        0.0,
+                        177.74256896972656
+                    ],
+                    [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ]
+            },
+            "shear_correction": {
+                "avg_angle_deg_for_calc": 89.93913278400267,
+                "avg_x_pos_for_calc": 846.2574257425742,
+                "shear_centering_matrix": [
+                    [
+                        1.0,
+                        0.0,
+                        177.74256896972656
+                    ],
+                    [
+                        0.0,
+                        1.0,
+                        0.0
+                    ]
+                ]
+            },
+            "selected_method": "shear",
+            "apply_translation": true
+        },
+        "cropping": {
+            "source_file": "c:\\Users\\mahmo\\OneDrive\\Desktop\\VS DIR\\Intern-KFUPM\\mah-sam\\hyperspectral_suite\\calibration_wizard\\assets\\temp_straightened_for_crop.png",
+            "analysis_mode": "outer",
+            "image_dimensions": {
+                "width": 2048,
+                "height": 2048
+            },
+            "threshold_value": 255,
+            "bbox_pixels": {
+                "x": 177,
+                "y": 248,
+                "width": 1753,
+                "height": 1800
+            },
+            "bbox_normalized": {
+                "x_norm": 0.086426,
+                "y_norm": 0.121094,
+                "width_norm": 0.855957,
+                "height_norm": 0.878906
+            }
+        },
+        "spectral": {
+            "description": "Wavelength map. Wavelength = f(pixel_row).",
+            "poly_degree": 2,
+            "coefficients": [
+                -1.1512331096268538e-05,
+                0.3857236014562228,
+                368.8108393263699
+            ],
+            "created": "2025-07-15 10:33:08",
+            "parameters": {
+                "bandwidth_nm": 10.0,
+                "fit_threshold": 20,
+                "fit_stride": 5
+            }
+        },
+        "output_dimensions": {
+            "width": 1753,
+            "height": 1800
+        }
+    }
+}

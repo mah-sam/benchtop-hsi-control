@@ -1,0 +1,57 @@
+{
+    "start_position": 180,
+    "end_position": 110,
+    "scan_speed": 80,
+    "mm_per_step": 1.0,
+    "camera_fov_width_mm": 75.0,
+    "scan_fps": 35,
+    "scan_duration_seconds": 6.2,
+    "r_wavelength": 625.0,
+    "g_wavelength": 535.0,
+    "b_wavelength": 460.0,
+    "sampling_thickness": 3,
+    "stage_min_limit": 10,
+    "stage_max_limit": 245,
+    "data_cube_save_dir": "C:/Users/mahmo/OneDrive/Desktop/VS DIR/Intern-KFUPM/mah-sam/hyperspectral_suite/data_cubes",
+    "output_size_percentage": 60,
+    "exposure_time_us": 12117.0,
+    "compression_algo": "gzip",
+    "compression_level": 4,
+    "shuffle_enabled": true,
+    "fletcher32_enabled": false,
+    "batching_enabled": true,
+    "batch_size": 64,
+    "custom_label_fields": [
+        {
+            "description": "(From Top to Bottom)",
+            "key": "Row"
+        },
+        {
+            "description": "(From Left to Right)",
+            "key": "Column"
+        },
+        {
+            "description": "(From Top to Bottom, Top Is Solder Line)",
+            "key": "Floor"
+        },
+        {
+            "description": "e.g., 5.54g",
+            "key": "Weight"
+        },
+        {
+            "description": "e.g., 5",
+            "key": "ID"
+        },
+        {
+            "description": "e.g. 8 hrs",
+            "key": "Dehydration_Time"
+        },
+        {
+            "description": "e.g. 70c",
+            "key": "Dehydration_Temp"
+        }
+    ],
+    "return_to_start_after_scan": true,
+    "post_scan_wait_seconds": 2,
+    "remember_crop_settings": false
+}
