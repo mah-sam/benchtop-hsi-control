@@ -284,52 +284,52 @@ class DataCubeSliceViewerDialog(QDialog):
     def _on_apply_roi(self):
         self._calculate_and_display_roi_spectrum()
 
-    # ### FIXED METHOD ###
     def _calculate_and_display_roi_spectrum(self):
-        """
-        Calculates the average spectrum for the selected ROI. This is the core
-        of the fix, ensuring the 2D mask correctly selects data from the 3D cube.
-        """
         if self.roi_mask is None or not np.any(self.roi_mask) or self.data_cube is None:
             QMessageBox.warning(self, "No ROI", "Please define a valid ROI before applying.")
             return
 
-        try:
-            # --- The Problem Context ---
-            # Cube shape: (spectral, spatial, slices) e.g., (1024, 1280, 200)
-            # Mask shape: (slices, spatial)           e.g., (200, 1280)
-            # A direct `cube[mask]` will fail. We need to map the mask's 2D
-            # coordinates to the cube's corresponding 2nd and 3rd dimensions.
+        # 1. Get the dimensions of both coordinate systems
+        # "Preview Space" (from the mask, which matches the RGB preview)
+        preview_h, preview_w = self.roi_mask.shape
 
-            # --- The Solution: Advanced Indexing ---
-            # 1. Get the (row, col) coordinates of all `True` pixels in the 2D mask.
-            #    `np.where` returns a tuple of arrays, one for each dimension.
-            roi_slice_coords, roi_spatial_coords = np.where(self.roi_mask)
+        # "Cube Space" (from the data cube)
+        cube_spectral_h, cube_spatial_w, cube_slice_h = self.data_cube.shape
 
-            # 2. Use these coordinate arrays to index the data cube.
-            #    - The first ':' selects the ENTIRE spectral dimension (the full column).
-            #    - The next two arrays are paired up, selecting pixels at each
-            #      (spatial_coords[i], slice_coords[i]) coordinate.
-            #    This is "fancy indexing" and is the correct way to solve this.
-            selected_spectra = self.data_cube[:, roi_spatial_coords, roi_slice_coords]
-            
-            # The result `selected_spectra` is a 2D array: (spectral_height, num_pixels_in_roi)
+        # 2. Check for dimension mismatch that indicates a problem
+        if preview_h != cube_slice_h:
+            # This would be a very strange bug, but it's good practice to check.
+            # The height (number of slices) should always match.
+            QMessageBox.critical(self, "Dimension Error", 
+                f"Mismatch in slice dimension between preview ({preview_h}) and data cube ({cube_slice_h}). Cannot calculate ROI.")
+            return
 
-            if selected_spectra.size == 0:
-                self._clear_roi()
-                return
+        # 3. Get the coordinates of the ROI pixels in "Preview Space"
+        # preview_y_coords corresponds to the slice axis
+        # preview_x_coords corresponds to the spatial axis
+        preview_y_coords, preview_x_coords = np.where(self.roi_mask)
 
-            # 3. Average across all the selected spectra (the second axis of our result).
+        # 4. === CORE OF THE FIX: TRANSFORM COORDINATES ===
+        # Calculate the scaling factor between the two coordinate systems.
+        # This is the ratio of the cube's width to the preview's width.
+        x_scale_factor = cube_spatial_w / preview_w
+
+        # Apply the transformation. Convert preview X coordinates to cube X coordinates.
+        # The Y coordinates (slices) don't need scaling as their dimension matches.
+        cube_spatial_indices = (preview_x_coords * x_scale_factor).astype(np.int64)
+        cube_slice_indices = preview_y_coords # No change needed
+
+        # 5. Perform advanced indexing using the CORRECTED coordinates
+        selected_spectra = self.data_cube[:, cube_spatial_indices, cube_slice_indices]
+
+        # 6. Proceed with averaging and plotting as before
+        if selected_spectra.size > 0:
             avg_spectrum = np.mean(selected_spectra, axis=1)
-
-            # 4. Update the plot with the final averaged spectrum.
             self.plot_widget.clear()
             self.plot_widget.plot(self.wavelengths, avg_spectrum, pen=pg.mkPen(color=(50, 150, 50), width=2), name="ROI Avg")
             self.plot_group.setTitle(f"ROI Average Spectrum ({selected_spectra.shape[1]} pixels)")
             self._calculate_and_display_metrics(avg_spectrum)
-
-        except (IndexError, ValueError) as e:
-            QMessageBox.critical(self, "Calculation Error", f"An error occurred during ROI spectrum calculation. The data shape may be inconsistent.\n\nError: {e}")
+        else:
             self._clear_roi()
 
     def _clear_roi(self):
