@@ -23,6 +23,10 @@
     "batch_size": 64,
     "custom_label_fields": [
         {
+            "description": "e.g., 5",
+            "key": "ID"
+        },
+        {
             "description": "(From Top to Bottom)",
             "key": "Row"
         },
@@ -37,10 +41,6 @@
         {
             "description": "e.g., 5.54g",
             "key": "Weight"
-        },
-        {
-            "description": "e.g., 5",
-            "key": "ID"
         },
         {
             "description": "e.g. 8 hrs",

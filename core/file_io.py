@@ -148,3 +148,34 @@ def load_h5_preview_and_metadata(filepath: str) -> Tuple[Dict[str, Any], Dict[st
             
     print(f"HDF5 preview and metadata loaded successfully from {filepath}")
     return metadata, labels, rgb_preview
+
+# Insert this function into core/file_io.py
+
+# In core/file_io.py, REPLACE the existing update_h5_roi_settings function.
+
+def update_h5_roi_mask_and_settings(filepath: str, roi_mask: np.ndarray, roi_settings: Dict[str, Any]):
+    """
+    Efficiently saves or updates the ROI mask (as a dataset) and its
+    generation settings (as an attribute) in an existing HDF5 file.
+
+    Args:
+        filepath (str): The path to the HDF5 file to update.
+        roi_mask (np.ndarray): The boolean ROI mask array to save.
+        roi_settings (Dict[str, Any]): The dictionary of ROI settings to save.
+    """
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"HDF5 file not found at: {filepath}")
+
+    try:
+        with h5py.File(filepath, 'r+') as f:
+            # Save the mask as a dataset, deleting the old one if it exists.
+            if 'roi_mask' in f:
+                del f['roi_mask']
+            f.create_dataset('roi_mask', data=roi_mask, compression='gzip')
+
+            # Save the settings as an attribute.
+            f.attrs['roi_settings'] = json.dumps(roi_settings)
+        print(f"Successfully updated ROI mask and settings in {filepath}")
+    except Exception as e:
+        print(f"Error updating ROI in {filepath}: {e}")
+        raise

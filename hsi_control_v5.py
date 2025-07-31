@@ -20,9 +20,11 @@ import h5py
 # It can be installed with: pip install pyqtgraph
 try:
     import pyqtgraph as pg
+    from pyqtgraph import exporters # ### NEW: Add this specific import ###
 except ImportError:
     print("CRITICAL: pyqtgraph is not installed. Please run 'pip install pyqtgraph'.")
     pg = None
+    exporters = None # ### NEW: Define as None if import fails ###
 
 
 from PyQt6.QtWidgets import (
@@ -67,62 +69,143 @@ from PyQt6.QtCore import pyqtSignal, QRect, QPoint, Qt
 from PyQt6.QtGui import QMouseEvent
 
 class ClickableSpectrogramLabel(QLabel):
-    """A QLabel that emits the image's pixel coordinates (row, col) on click."""
-    pixel_clicked = pyqtSignal(int, int)
+    """
+    A QLabel that emits pixel coordinates on click and supports a brush preview.
+    It now also emits signals for mouse press and drag events for painting.
+    """
+    pixel_clicked = pyqtSignal(int, int) # For magic wand seed point
+    paint_stroke_started = pyqtSignal(QPoint) # When mouse is pressed
+    paint_stroke_continued = pyqtSignal(QPoint) # When mouse is dragged
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.original_width = 0
         self.original_height = 0
+        self.setMouseTracking(True)
+        self._is_painting = False
+
+        # Brush Preview State
+        self.brush_preview_active = False
+        self.brush_radius_pixels = 10
+        self.brush_is_add_mode = True
+        self.current_mouse_pos = QPoint()
 
     def set_original_size(self, width: int, height: int):
-        """Stores the size of the source image to calculate coordinates."""
         self.original_width = width
         self.original_height = height
 
-    def mousePressEvent(self, event: QMouseEvent):
-        pixmap = self.pixmap()
-        if not pixmap or pixmap.isNull() or self.original_width == 0 or self.original_height == 0:
-            return
+    def set_brush_preview(self, active: bool, radius: int, is_add_mode: bool):
+        """Controls the visibility and appearance of the brush preview."""
+        self.brush_preview_active = active
+        self.brush_radius_pixels = radius
+        self.brush_is_add_mode = is_add_mode
+        self.update() # Trigger a repaint
 
+    def _get_pixmap_coords(self, widget_pos: QPoint) -> QPoint | None:
+        """Converts widget coordinates to coordinates on the displayed pixmap."""
+        pixmap = self.pixmap()
+        if not pixmap or pixmap.isNull():
+            return None
+        
         widget_w, widget_h = self.width(), self.height()
         pixmap_w, pixmap_h = pixmap.width(), pixmap.height()
         
         offset_x = (widget_w - pixmap_w) / 2.0
         offset_y = (widget_h - pixmap_h) / 2.0
         
-        pixmap_x = event.pos().x() - offset_x
-        pixmap_y = event.pos().y() - offset_y
+        pixmap_x = widget_pos.x() - offset_x
+        pixmap_y = widget_pos.y() - offset_y
 
         if 0 <= pixmap_x < pixmap_w and 0 <= pixmap_y < pixmap_h:
-            image_x = int(pixmap_x * self.original_width / pixmap_w)
-            image_y = int(pixmap_y * self.original_height / pixmap_h)
-            self.pixel_clicked.emit(image_y, image_x) # Emit row, col
+            return QPoint(int(pixmap_x), int(pixmap_y))
+        return None
+
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.MouseButton.LeftButton:
+            pixmap_pos = self._get_pixmap_coords(event.pos())
+            if pixmap_pos:
+                # If the brush preview is active, clicks are for painting.
+                if self.brush_preview_active:
+                    self._is_painting = True
+                    self.paint_stroke_started.emit(pixmap_pos)
+                # Otherwise, clicks are for setting the magic wand seed.
+                else:
+                    h_pix, w_pix = self.pixmap().height(), self.pixmap().width()
+                    image_x = int(pixmap_pos.x() * self.original_width / w_pix)
+                    image_y = int(pixmap_pos.y() * self.original_height / h_pix)
+                    self.pixel_clicked.emit(image_y, image_x)
+
+    def mouseMoveEvent(self, event: QMouseEvent):
+        self.current_mouse_pos = event.pos()
+        if self._is_painting and (event.buttons() & Qt.MouseButton.LeftButton):
+            pixmap_pos = self._get_pixmap_coords(event.pos())
+            if pixmap_pos:
+                self.paint_stroke_continued.emit(pixmap_pos)
+        self.update() # Redraw to show brush preview moving
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._is_painting = False
+
+    def leaveEvent(self, event):
+        """Hide the brush preview when the mouse leaves the widget."""
+        self.current_mouse_pos = QPoint(-1, -1) # Move preview off-screen
+        self.update()
+
+    def paintEvent(self, event):
+        """Draws the image and then the brush preview on top."""
+        super().paintEvent(event) # Draw the pixmap first
+        
+        if not self.brush_preview_active or self.current_mouse_pos.x() < 0:
+            return
+
+        pixmap = self.pixmap()
+        if not pixmap or pixmap.isNull():
+            return
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        scale_factor = pixmap.width() / self.original_width if self.original_width > 0 else 1.0
+        display_radius = self.brush_radius_pixels * scale_factor
+
+        color = QColor(0, 255, 0, 90) if self.brush_is_add_mode else QColor(255, 0, 0, 90)
+        painter.setBrush(color)
+        painter.setPen(Qt.PenStyle.NoPen)
+        
+        int_radius = int(display_radius)
+        painter.drawEllipse(self.current_mouse_pos, int_radius, int_radius)
 
             
 class DataCubeSliceViewerDialog(QDialog):
     """
     An advanced dialog for interactively viewing and analyzing data cube slices,
-    featuring a Photoshop-style "Magic Wand" for region-of-interest (ROI) analysis
-    using adjustable HSV thresholds on the full RGB preview with an explicit 'Apply' step.
-    All features, including detailed metrics and UI controls, are fully implemented and restored.
+    featuring a Photoshop-style "Magic Wand" and a complementary Brush tool for
+    ROI analysis.
     """
     def __init__(self, filepath: str, parent=None):
         super().__init__(parent)
         self.filepath = filepath
-        self.roi_sidecar_path = os.path.splitext(filepath)[0] + '.roi.json'
         
-        # Data members
         self.data_cube, self.metadata, self.wavelengths = None, None, None
         self.rgb_preview, self.hsv_preview = None, None
         self.global_avg_spectrum, self.current_slice_float = None, None
         
-        # ROI members
-        self.roi_mask, self.roi_seed_point, self.roi_seed_hsv = None, None, None
         self.is_roi_selection_mode = False
         
+        # ### RE-ARCHITECTED: Separate masks for each tool ###
+        self.roi_mask = None              # The final, composite mask
+        self.magic_wand_mask = None       # Mask from the flood-fill operation
+        self.brush_add_mask = None        # Mask for pixels added by the brush
+        self.brush_subtract_mask = None   # Mask for pixels subtracted by the brush
+        
+        self.roi_seed_point, self.roi_seed_hsv = None, None
+        self.last_roi_spectrum, self.last_roi_wavelengths = None, None
+        self.brush_size, self.brush_mode_is_add = 10, True
+        
         self.setWindowTitle(f"Advanced Slice Analyzer - {os.path.basename(filepath)}")
-        self.setMinimumSize(1200, 800)
+        self.resize(1200, 800) 
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMinimizeButtonHint | Qt.WindowType.WindowMaximizeButtonHint)
 
         if pg is None:
             QMessageBox.critical(self, "Dependency Error", "The 'pyqtgraph' library is required. Please run: pip install pyqtgraph")
@@ -139,39 +222,30 @@ class DataCubeSliceViewerDialog(QDialog):
 
     def _load_data(self) -> bool:
         try:
-            # Note: load_h5 loads the entire cube into memory. This is necessary for this type of analysis.
             cube, metadata, _, rgb_preview_from_file = file_io.load_h5(self.filepath)
-            
             if 'wavelength' not in metadata: raise ValueError("HDF5 metadata is missing 'wavelength' key.")
-            
             self.data_cube, self.metadata = cube, metadata
             self.wavelengths = np.array(metadata['wavelength'])
-            
             if rgb_preview_from_file is not None:
                 self.rgb_preview = rgb_preview_from_file
                 self.hsv_preview = cv2.cvtColor(rgb_preview_from_file, cv2.COLOR_BGR2HSV)
             else:
                 self.roi_group.setEnabled(False)
                 self.roi_group.setToolTip("ROI analysis requires an embedded RGB preview.")
-
             if self.data_cube.size > 0: self.global_avg_spectrum = np.mean(self.data_cube, axis=(1, 2))
-
             self.slice_slider.setRange(0, self.data_cube.shape[2] - 1)
             self.slice_spinbox.setRange(0, self.data_cube.shape[2] - 1)
-            
             if self.global_avg_spectrum is not None:
                 self.plot_widget.plot(self.wavelengths, self.global_avg_spectrum, pen=pg.mkPen(color=(150, 150, 150), width=2, style=Qt.PenStyle.DashLine), name="Global Avg")
                 self.plot_group.setTitle("Global Average Spectrum (Initial)")
-
             self._update_slice_view()
             return True
         except Exception as e:
             QMessageBox.critical(self, "Load Error", f"Failed to load or process HDF5 data cube:\n\n{e}\n{traceback.format_exc()}")
             return False
-
+            
     def _setup_ui(self):
         main_layout = QHBoxLayout(self)
-        
         left_scroll_area = QScrollArea(); left_scroll_area.setWidgetResizable(True); left_scroll_area.setMaximumWidth(450)
         left_panel_container = QWidget(); left_layout = QVBoxLayout(left_panel_container); left_scroll_area.setWidget(left_panel_container)
         
@@ -188,6 +262,9 @@ class DataCubeSliceViewerDialog(QDialog):
         
         self.roi_group = QGroupBox("Region of Interest (ROI) Analysis"); self.roi_group.setCheckable(True); self.roi_group.setChecked(False)
         roi_layout = QVBoxLayout(self.roi_group)
+        
+        self.magic_wand_group = QGroupBox("Magic Wand Tool")
+        magic_wand_layout = QVBoxLayout(self.magic_wand_group)
         roi_controls_layout = QFormLayout()
         self.roi_h_slider = QSlider(Qt.Orientation.Horizontal); self.roi_h_slider.setRange(0, 90); self.roi_h_slider.setValue(10)
         self.roi_s_slider = QSlider(Qt.Orientation.Horizontal); self.roi_s_slider.setRange(0, 128); self.roi_s_slider.setValue(40)
@@ -197,12 +274,41 @@ class DataCubeSliceViewerDialog(QDialog):
         roi_controls_layout.addRow("Hue Tolerance:", create_slider_row(self.roi_h_slider, self.roi_h_label))
         roi_controls_layout.addRow("Saturation Tolerance:", create_slider_row(self.roi_s_slider, self.roi_s_label))
         roi_controls_layout.addRow("Value Tolerance:", create_slider_row(self.roi_v_slider, self.roi_v_label))
+        magic_wand_layout.addWidget(QLabel("1. Click image to set seed point.\n2. Adjust sliders to refine selection."))
+        magic_wand_layout.addLayout(roi_controls_layout)
+        
+        self.brush_editor_group = QGroupBox("Brush Editor Tool")
+        brush_layout = QVBoxLayout(self.brush_editor_group)
+        brush_mode_layout = QHBoxLayout()
+        self.brush_add_radio = QRadioButton("Add"); self.brush_add_radio.setChecked(True)
+        self.brush_subtract_radio = QRadioButton("Subtract")
+        brush_mode_layout.addWidget(self.brush_add_radio); brush_mode_layout.addWidget(self.brush_subtract_radio); brush_mode_layout.addStretch()
+        brush_size_layout = QFormLayout()
+        self.brush_size_slider = QSlider(Qt.Orientation.Horizontal); self.brush_size_slider.setRange(1, 100); self.brush_size_slider.setValue(self.brush_size)
+        self.brush_size_label = QLabel(f"{self.brush_size} px")
+        size_row = QHBoxLayout(); size_row.addWidget(self.brush_size_slider); size_row.addWidget(self.brush_size_label)
+        brush_size_layout.addRow("Brush Size:", size_row)
+        brush_layout.addWidget(QLabel("Click and drag on image to edit mask."))
+        brush_layout.addLayout(brush_mode_layout)
+        brush_layout.addLayout(brush_size_layout)
+        
+        roi_actions_group = QGroupBox("ROI Actions")
+        roi_actions_layout = QVBoxLayout(roi_actions_group)
         self.roi_apply_button = QPushButton("Apply ROI & Calculate Spectrum"); self.roi_apply_button.setStyleSheet("font-weight: bold;")
         roi_buttons_widget = QWidget(); roi_buttons_layout = QHBoxLayout(roi_buttons_widget); roi_buttons_layout.setContentsMargins(0,0,0,0)
-        self.roi_clear_button = QPushButton("Clear"); self.roi_save_button = QPushButton("Save")
-        roi_buttons_layout.addWidget(self.roi_clear_button); roi_buttons_layout.addWidget(self.roi_save_button); roi_buttons_layout.addStretch()
-        roi_layout.addWidget(QLabel("1. Click image to set seed point.\n2. Adjust HSV tolerance sliders.\n3. Click 'Apply' to calculate spectrum."))
-        roi_layout.addLayout(roi_controls_layout); roi_layout.addWidget(self.roi_apply_button); roi_layout.addWidget(roi_buttons_widget)
+        self.roi_clear_button = QPushButton("Clear")
+        self.roi_save_button = QPushButton("Save ROI to HDF5")
+        self.roi_save_spectrum_button = QPushButton("Save Spectrum...")
+        self.roi_save_spectrum_button.setEnabled(False)
+        roi_buttons_layout.addWidget(self.roi_clear_button)
+        roi_buttons_layout.addWidget(self.roi_save_button)
+        roi_buttons_layout.addWidget(self.roi_save_spectrum_button)
+        roi_buttons_layout.addStretch()
+        roi_actions_layout.addWidget(self.roi_apply_button); roi_actions_layout.addWidget(roi_buttons_widget)
+        
+        roi_layout.addWidget(self.magic_wand_group)
+        roi_layout.addWidget(self.brush_editor_group)
+        roi_layout.addWidget(roi_actions_group)
         
         self.plot_group = QGroupBox("Spectral Profile"); plot_layout = QVBoxLayout(self.plot_group)
         pg.setConfigOption('background', 'w'); pg.setConfigOption('foreground', 'k')
@@ -213,7 +319,8 @@ class DataCubeSliceViewerDialog(QDialog):
         metrics_layout.addRow("Peak Wavelength:", self.peak_wavelength_label); metrics_layout.addRow("Peak Intensity:", self.peak_intensity_label)
         metrics_layout.addRow("SNR:", self.snr_label); metrics_layout.addRow("FWHM:", self.fwhm_label); metrics_layout.addRow("Centroid:", self.centroid_label)
         plot_layout.addWidget(self.plot_widget); plot_layout.addLayout(metrics_layout)
-
+        self.plot_group.setFixedHeight(350)
+        
         left_layout.addWidget(self.slice_controls_group); left_layout.addWidget(self.roi_group); left_layout.addWidget(self.plot_group); left_layout.addStretch()
         
         self.image_label = ClickableSpectrogramLabel(); self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter); self.image_label.setStyleSheet("background-color: #222; color: #888;"); self.image_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
@@ -225,25 +332,81 @@ class DataCubeSliceViewerDialog(QDialog):
         self.gain_spinbox.valueChanged.connect(self._update_slice_view)
         self.colormap_combo.currentIndexChanged.connect(self._update_slice_view)
         self.auto_contrast_button.clicked.connect(self._auto_adjust_contrast)
+        
         self.image_label.pixel_clicked.connect(self._handle_image_click)
         self.roi_group.toggled.connect(self._on_roi_toggled)
         self.roi_h_slider.valueChanged.connect(self._on_roi_hsv_changed); self.roi_s_slider.valueChanged.connect(self._on_roi_hsv_changed); self.roi_v_slider.valueChanged.connect(self._on_roi_hsv_changed)
         self.roi_clear_button.clicked.connect(self._clear_roi); self.roi_save_button.clicked.connect(self._save_roi); self.roi_apply_button.clicked.connect(self._on_apply_roi)
+        self.roi_save_spectrum_button.clicked.connect(self._on_save_roi_spectrum)
+
+        self.brush_add_radio.toggled.connect(self._on_brush_mode_changed)
+        self.brush_size_slider.valueChanged.connect(self._on_brush_size_changed)
+        self.image_label.paint_stroke_started.connect(self._apply_brush_stroke)
+        self.image_label.paint_stroke_continued.connect(self._apply_brush_stroke)
+        
+    def _update_roi_tool_states(self):
+        is_roi_mode_active = self.roi_group.isChecked()
+        has_seed = self.roi_seed_point is not None
+        self.roi_h_slider.setEnabled(is_roi_mode_active and has_seed)
+        self.roi_s_slider.setEnabled(is_roi_mode_active and has_seed)
+        self.roi_v_slider.setEnabled(is_roi_mode_active and has_seed)
+        self.brush_editor_group.setEnabled(is_roi_mode_active and has_seed)
+        self.image_label.set_brush_preview(active=(is_roi_mode_active and has_seed), radius=self.brush_size, is_add_mode=self.brush_mode_is_add)
 
     def _on_roi_toggled(self, checked: bool):
         self.is_roi_selection_mode = checked
         self.slice_controls_group.setEnabled(not checked)
-        if not checked:
-            self._clear_roi()
+        if not checked: self._clear_roi()
         self.image_label.setCursor(Qt.CursorShape.CrossCursor if checked else Qt.CursorShape.ArrowCursor)
         self._update_slice_view()
+        self._update_roi_tool_states()
+
+    @pyqtSlot(bool)
+    def _on_brush_mode_changed(self, is_add_mode: bool):
+        self.brush_mode_is_add = is_add_mode
+        self._update_roi_tool_states()
+
+    @pyqtSlot(int)
+    def _on_brush_size_changed(self, value: int):
+        self.brush_size = value
+        self.brush_size_label.setText(f"{self.brush_size} px")
+        self._update_roi_tool_states()
+
+    def _initialize_brush_masks(self):
+        if self.brush_add_mask is None:
+            self.brush_add_mask = np.zeros(self.rgb_preview.shape[:2], dtype=bool)
+        if self.brush_subtract_mask is None:
+            self.brush_subtract_mask = np.zeros(self.rgb_preview.shape[:2], dtype=bool)
+
+    @pyqtSlot(QPoint)
+    def _apply_brush_stroke(self, pixmap_pos: QPoint):
+        if not self.is_roi_selection_mode or self.rgb_preview is None: return
+        self._initialize_brush_masks()
+        h_orig, w_orig = self.rgb_preview.shape[:2]
+        h_pix, w_pix = self.image_label.pixmap().height(), self.image_label.pixmap().width()
+        center_x = int(pixmap_pos.x() * w_orig / w_pix)
+        center_y = int(pixmap_pos.y() * h_orig / h_pix)
+        if self.brush_mode_is_add:
+            temp_mask_uint8 = self.brush_add_mask.astype(np.uint8)
+            cv2.circle(temp_mask_uint8, (center_x, center_y), self.brush_size, 1, -1)
+            self.brush_add_mask = temp_mask_uint8.astype(bool)
+            self.brush_subtract_mask[self.brush_add_mask] = False
+        else:
+            temp_mask_uint8 = self.brush_subtract_mask.astype(np.uint8)
+            cv2.circle(temp_mask_uint8, (center_x, center_y), self.brush_size, 1, -1)
+            self.brush_subtract_mask = temp_mask_uint8.astype(bool)
+            self.brush_add_mask[self.brush_subtract_mask] = False
+        self._recalculate_composite_mask()
 
     def _handle_image_click(self, row: int, col: int):
         if self.is_roi_selection_mode:
             if self.hsv_preview is None: return
-            self.roi_seed_point = (col, row) # Store as (x, y) or (col, row)
+            self.roi_seed_point = (col, row)
             self.roi_seed_hsv = self.hsv_preview[row, col]
+            self.brush_add_mask = None
+            self.brush_subtract_mask = None
             self._update_roi_segmentation()
+            self._update_roi_tool_states()
         else:
             self._update_spectrum_plot(col)
 
@@ -251,8 +414,7 @@ class DataCubeSliceViewerDialog(QDialog):
         self.roi_h_label.setText(str(self.roi_h_slider.value()))
         self.roi_s_label.setText(str(self.roi_s_slider.value()))
         self.roi_v_label.setText(str(self.roi_v_slider.value()))
-        if self.roi_seed_point:
-            self._update_roi_segmentation()
+        if self.roi_seed_point: self._update_roi_segmentation()
 
     def _update_roi_segmentation(self):
         if self.hsv_preview is None or self.roi_seed_point is None or self.roi_seed_hsv is None: return
@@ -261,8 +423,6 @@ class DataCubeSliceViewerDialog(QDialog):
         h_min, h_max = int(seed_h) - h_tol, int(seed_h) + h_tol
         s_min, s_max = max(0, int(seed_s) - s_tol), min(255, int(seed_s) + s_tol)
         v_min, v_max = max(0, int(seed_v) - v_tol), min(255, int(seed_v) + v_tol)
-        
-        # Handle hue wrapping for red colors (around 0/179 in OpenCV)
         if h_min < 0:
             lower1 = np.array([0, s_min, v_min]); upper1 = np.array([h_max, s_max, v_max])
             lower2 = np.array([180 + h_min, s_min, v_min]); upper2 = np.array([179, s_max, v_max])
@@ -274,10 +434,21 @@ class DataCubeSliceViewerDialog(QDialog):
         else:
             lower = np.array([h_min, s_min, v_min]); upper = np.array([h_max, s_max, v_max])
             color_mask = cv2.inRange(self.hsv_preview, lower, upper)
-            
         flood_mask = np.zeros((self.hsv_preview.shape[0] + 2, self.hsv_preview.shape[1] + 2), dtype=np.uint8)
         cv2.floodFill(color_mask.copy(), flood_mask, self.roi_seed_point, 255)
-        self.roi_mask = flood_mask[1:-1, 1:-1].astype(bool)
+        self.magic_wand_mask = flood_mask[1:-1, 1:-1].astype(bool)
+        self._recalculate_composite_mask()
+
+    def _recalculate_composite_mask(self):
+        if self.magic_wand_mask is not None:
+            base_mask = self.magic_wand_mask.copy()
+        else:
+            base_mask = np.zeros(self.rgb_preview.shape[:2], dtype=bool)
+        if self.brush_add_mask is not None:
+            base_mask |= self.brush_add_mask
+        if self.brush_subtract_mask is not None:
+            base_mask &= ~self.brush_subtract_mask
+        self.roi_mask = base_mask
         self._update_slice_view()
 
     @pyqtSlot()
@@ -288,43 +459,21 @@ class DataCubeSliceViewerDialog(QDialog):
         if self.roi_mask is None or not np.any(self.roi_mask) or self.data_cube is None:
             QMessageBox.warning(self, "No ROI", "Please define a valid ROI before applying.")
             return
-
-        # 1. Get the dimensions of both coordinate systems
-        # "Preview Space" (from the mask, which matches the RGB preview)
         preview_h, preview_w = self.roi_mask.shape
-
-        # "Cube Space" (from the data cube)
         cube_spectral_h, cube_spatial_w, cube_slice_h = self.data_cube.shape
-
-        # 2. Check for dimension mismatch that indicates a problem
         if preview_h != cube_slice_h:
-            # This would be a very strange bug, but it's good practice to check.
-            # The height (number of slices) should always match.
-            QMessageBox.critical(self, "Dimension Error", 
-                f"Mismatch in slice dimension between preview ({preview_h}) and data cube ({cube_slice_h}). Cannot calculate ROI.")
+            QMessageBox.critical(self, "Dimension Error", f"Mismatch in slice dimension between preview ({preview_h}) and data cube ({cube_slice_h}). Cannot calculate ROI.")
             return
-
-        # 3. Get the coordinates of the ROI pixels in "Preview Space"
-        # preview_y_coords corresponds to the slice axis
-        # preview_x_coords corresponds to the spatial axis
         preview_y_coords, preview_x_coords = np.where(self.roi_mask)
-
-        # 4. === CORE OF THE FIX: TRANSFORM COORDINATES ===
-        # Calculate the scaling factor between the two coordinate systems.
-        # This is the ratio of the cube's width to the preview's width.
         x_scale_factor = cube_spatial_w / preview_w
-
-        # Apply the transformation. Convert preview X coordinates to cube X coordinates.
-        # The Y coordinates (slices) don't need scaling as their dimension matches.
         cube_spatial_indices = (preview_x_coords * x_scale_factor).astype(np.int64)
-        cube_slice_indices = preview_y_coords # No change needed
-
-        # 5. Perform advanced indexing using the CORRECTED coordinates
+        cube_slice_indices = preview_y_coords
         selected_spectra = self.data_cube[:, cube_spatial_indices, cube_slice_indices]
-
-        # 6. Proceed with averaging and plotting as before
         if selected_spectra.size > 0:
             avg_spectrum = np.mean(selected_spectra, axis=1)
+            self.last_roi_spectrum = avg_spectrum
+            self.last_roi_wavelengths = self.wavelengths
+            self.roi_save_spectrum_button.setEnabled(True)
             self.plot_widget.clear()
             self.plot_widget.plot(self.wavelengths, avg_spectrum, pen=pg.mkPen(color=(50, 150, 50), width=2), name="ROI Avg")
             self.plot_group.setTitle(f"ROI Average Spectrum ({selected_spectra.shape[1]} pixels)")
@@ -333,60 +482,137 @@ class DataCubeSliceViewerDialog(QDialog):
             self._clear_roi()
 
     def _clear_roi(self):
-        self.roi_mask, self.roi_seed_point, self.roi_seed_hsv = None, None, None
+        self.roi_mask, self.magic_wand_mask = None, None
+        self.brush_add_mask, self.brush_subtract_mask = None, None
+        self.roi_seed_point, self.roi_seed_hsv = None, None
+        self.last_roi_spectrum, self.last_roi_wavelengths = None, None
+        self.roi_save_spectrum_button.setEnabled(False)
         self.plot_widget.clear()
         self.plot_group.setTitle("Spectral Profile")
         if self.global_avg_spectrum is not None:
             self.plot_widget.plot(self.wavelengths, self.global_avg_spectrum, pen=pg.mkPen(color=(150, 150, 150), width=2, style=Qt.PenStyle.DashLine), name="Global Avg")
         self._calculate_and_display_metrics(None)
         self._update_slice_view()
+        self._update_roi_tool_states()
 
     def _save_roi(self):
-        if self.roi_seed_point is None:
-            QMessageBox.warning(self, "No ROI", "Please select an ROI on the image before saving.")
+        if self.roi_mask is None or not np.any(self.roi_mask):
+            QMessageBox.warning(self, "No ROI", "There is no active ROI mask to save.")
             return
-        roi_data = {
+        if not self.filepath or not os.path.exists(self.filepath):
+            QMessageBox.critical(self, "File Error", "The source HDF5 file path is invalid or does not exist.")
+            return
+        roi_settings = {
             "seed_point_col_row": self.roi_seed_point,
             "h_tolerance": self.roi_h_slider.value(),
             "s_tolerance": self.roi_s_slider.value(),
             "v_tolerance": self.roi_v_slider.value()
         }
         try:
-            with open(self.roi_sidecar_path, 'w') as f:
-                json.dump(roi_data, f, indent=4)
-            QMessageBox.information(self, "Success", f"ROI settings saved to:\n{os.path.basename(self.roi_sidecar_path)}")
+            file_io.update_h5_roi_mask_and_settings(self.filepath, self.roi_mask, roi_settings)
+            QMessageBox.information(self, "Success", "ROI mask and settings were saved successfully into the HDF5 file.")
         except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"Failed to save ROI settings.\n\n{e}")
+            QMessageBox.critical(self, "Save Error", f"Failed to save ROI into the HDF5 file.\n\n{e}")
 
     def _load_roi(self):
-        if not os.path.exists(self.roi_sidecar_path) or self.hsv_preview is None: return
+        if not self.filepath or self.hsv_preview is None: return
         try:
-            with open(self.roi_sidecar_path, 'r') as f: roi_data = json.load(f)
-            self.roi_group.setChecked(True)
-            self.roi_seed_point = tuple(roi_data["seed_point_col_row"])
-            self.roi_seed_hsv = self.hsv_preview[self.roi_seed_point[1], self.roi_seed_point[0]]
-            self.roi_h_slider.setValue(roi_data.get("h_tolerance", 10))
-            self.roi_s_slider.setValue(roi_data.get("s_tolerance", 40))
-            self.roi_v_slider.setValue(roi_data.get("v_tolerance", 40))
-            self._update_roi_segmentation()
-            self._on_apply_roi()
+            with h5py.File(self.filepath, 'r') as f:
+                loaded_mask = None
+                if 'roi_mask' in f:
+                    loaded_mask = f['roi_mask'][:].astype(bool)
+                    print("Loaded ROI from saved mask dataset.")
+                
+                roi_settings_str = f.attrs.get('roi_settings')
+                if roi_settings_str:
+                    roi_data = json.loads(roi_settings_str)
+                    self.roi_seed_point = tuple(roi_data.get("seed_point_col_row"))
+                    if self.roi_seed_point:
+                        self.roi_seed_hsv = self.hsv_preview[self.roi_seed_point[1], self.roi_seed_point[0]]
+                    self.roi_h_slider.setValue(roi_data.get("h_tolerance", 10))
+                    self.roi_s_slider.setValue(roi_data.get("s_tolerance", 40))
+                    self.roi_v_slider.setValue(roi_data.get("v_tolerance", 40))
+
+                # ### FIX: Correctly initialize internal state from loaded data ###
+                if loaded_mask is not None:
+                    # Treat the loaded mask as the ground truth.
+                    # Initialize the component masks based on this truth.
+                    self.brush_add_mask = loaded_mask.copy()
+                    self.magic_wand_mask = np.zeros_like(loaded_mask, dtype=bool)
+                    self.brush_subtract_mask = np.zeros_like(loaded_mask, dtype=bool)
+                elif self.roi_seed_point:
+                    # Fallback for old files: regenerate from settings.
+                    self._update_roi_segmentation()
+                    return # The call to _recalculate_composite_mask is inside here
+
+            if self.roi_mask is not None or self.brush_add_mask is not None:
+                self.roi_group.setChecked(True)
+                self._recalculate_composite_mask()
+                self._on_apply_roi()
+                self._update_roi_tool_states()
         except Exception as e:
-            QMessageBox.warning(self, "ROI Load Error", f"Could not load or apply saved ROI settings.\n\n{e}")
+            QMessageBox.warning(self, "ROI Load Error", f"Could not load or apply ROI from the HDF5 file.\n\n{e}\n{traceback.format_exc()}")
+            
+        # In the DataCubeSliceViewerDialog class, replace this method.
+
+    def _on_save_roi_spectrum(self):
+        """Handles saving the currently displayed ROI spectrum to a file."""
+        if self.last_roi_spectrum is None or self.last_roi_wavelengths is None:
+            QMessageBox.warning(self, "No Data", "No ROI spectrum data is available to save.")
+            return
+
+        base_name = os.path.splitext(os.path.basename(self.filepath))[0]
+        default_path = os.path.join(os.path.dirname(self.filepath), f"{base_name}_roi_spectrum.csv")
+
+        file_path, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Save ROI Spectrum",
+            default_path,
+            "CSV Files (*.csv);;PNG Image (*.png)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+            if "CSV" in selected_filter:
+                if not file_path.lower().endswith('.csv'):
+                    file_path += '.csv'
+                
+                data_to_save = np.vstack((self.last_roi_wavelengths, self.last_roi_spectrum)).T
+                header = "Wavelength (nm),Intensity (A.U.)"
+                np.savetxt(file_path, data_to_save, delimiter=',', header=header, comments='')
+                QMessageBox.information(self, "Success", f"Spectrum data saved successfully to:\n{file_path}")
+
+            elif "PNG" in selected_filter:
+                if not file_path.lower().endswith('.png'):
+                    file_path += '.png'
+                
+                if exporters is None:
+                    raise ImportError("pyqtgraph.exporters could not be imported.")
+                
+                exporter = exporters.ImageExporter(self.plot_widget.plotItem)
+
+                # ### FIX: Set the export width in pixels for higher quality. ###
+                # The height will be scaled automatically to maintain the aspect ratio.
+                exporter.parameters()['width'] = 1200
+
+                exporter.export(file_path)
+                QMessageBox.information(self, "Success", f"Spectrum plot saved successfully to:\n{file_path}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"An error occurred while saving the file:\n\n{e}")
 
     def _update_slice_view(self):
-        # ROI mode displays the RGB preview with a mask overlay
         if self.is_roi_selection_mode:
             if self.rgb_preview is None: return
             display_img = self.rgb_preview.copy()
             if self.roi_mask is not None:
-                # Create a red overlay and apply it only where the mask is NOT active
                 red_overlay = np.full(display_img.shape, (0, 0, 255), dtype=np.uint8)
                 display_img[~self.roi_mask] = cv2.addWeighted(display_img[~self.roi_mask], 0.6, red_overlay[~self.roi_mask], 0.4, 0)
-            
             h, w, ch = display_img.shape
             q_image = QImage(display_img.data, w, h, ch * w, QImage.Format.Format_BGR888)
             self.image_label.set_original_size(w, h)
-        # Normal mode displays a single slice of the data cube
         else:
             if self.data_cube is None: return
             slice_idx = self.slice_spinbox.value()
@@ -394,17 +620,14 @@ class DataCubeSliceViewerDialog(QDialog):
             processed_slice = self.current_slice_float * self.gain_spinbox.value()
             cv2.normalize(processed_slice, processed_slice, 0, 255, cv2.NORM_MINMAX)
             slice_8bit = processed_slice.astype(np.uint8)
-            
             colormap_code = self.colormaps[self.colormap_combo.currentText()]
-            if colormap_code == -1: # Grayscale
+            if colormap_code == -1:
                 display_img = cv2.cvtColor(slice_8bit, cv2.COLOR_GRAY2BGR)
             else:
                 display_img = cv2.applyColorMap(slice_8bit, colormap_code)
-            
             h, w, ch = display_img.shape
             q_image = QImage(display_img.data, w, h, ch * w, QImage.Format.Format_BGR888)
             self.image_label.set_original_size(w, h)
-            
         pixmap = QPixmap.fromImage(q_image)
         self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.FastTransformation))
 
@@ -423,42 +646,38 @@ class DataCubeSliceViewerDialog(QDialog):
         if spectrum is None or spectrum.size == 0 or self.wavelengths is None:
             for label in [self.peak_wavelength_label, self.peak_intensity_label, self.snr_label, self.fwhm_label, self.centroid_label]: label.setText("N/A")
             return
-            
         peak_idx = np.argmax(spectrum)
         peak_val, peak_wav = spectrum[peak_idx], self.wavelengths[peak_idx]
         self.peak_wavelength_label.setText(f"{peak_wav:.2f} nm")
         self.peak_intensity_label.setText(f"{peak_val:.2f}")
-        
         mean_val, std_val = np.mean(spectrum), np.std(spectrum)
         self.snr_label.setText(f"{mean_val / std_val:.2f} (Mean/StdDev)" if std_val > 1e-6 else "N/A")
-        
         total_intensity = np.sum(spectrum)
         self.centroid_label.setText(f"{np.sum(spectrum * self.wavelengths) / total_intensity:.2f} nm" if total_intensity > 1e-6 else "N/A")
-        
         try:
             min_val = np.min(spectrum)
+            if not (peak_val > min_val): raise ValueError("Peak is not distinct from minimum.")
             half_max = min_val + (peak_val - min_val) / 2.0
-            above_half_max = np.where(spectrum > half_max)[0]
-            if len(above_half_max) < 2: raise ValueError("Not enough points for FWHM.")
-            
-            left_idx, right_idx = above_half_max[0], above_half_max[-1]
-            if left_idx == 0 or right_idx >= len(spectrum) - 1: raise ValueError("Peak at boundary.")
-            
-            # Linear interpolation for FWHM
-            y1, y2 = spectrum[left_idx-1], spectrum[left_idx]; w1, w2 = self.wavelengths[left_idx-1], self.wavelengths[left_idx]
-            left_wav = w1 + (w2 - w1) * (half_max - y1) / (y2 - y1)
-            y1, y2 = spectrum[right_idx], spectrum[right_idx+1]; w1, w2 = self.wavelengths[right_idx], self.wavelengths[right_idx+1]
-            right_wav = w1 + (w2 - w1) * (half_max - y1) / (y2 - y1)
-            
-            self.fwhm_label.setText(f"{right_wav - left_wav:.2f} nm")
-        except (ValueError, IndexError):
+            above_half_max_indices = np.where(spectrum > half_max)[0]
+            if len(above_half_max_indices) < 2: raise ValueError("Not enough points above half-maximum for FWHM.")
+            left_idx, right_idx = above_half_max_indices[0], above_half_max_indices[-1]
+            if left_idx == 0 or right_idx >= len(spectrum) - 1: raise ValueError("Peak is at the boundary; cannot interpolate FWHM.")
+            y1_left, y2_left = float(spectrum[left_idx - 1]), float(spectrum[left_idx])
+            w1_left, w2_left = self.wavelengths[left_idx - 1], self.wavelengths[left_idx]
+            denom_left = y2_left - y1_left
+            left_wav = w2_left if abs(denom_left) < 1e-9 else w1_left + (w2_left - w1_left) * (half_max - y1_left) / denom_left
+            y1_right, y2_right = float(spectrum[right_idx]), float(spectrum[right_idx + 1])
+            w1_right, w2_right = self.wavelengths[right_idx], self.wavelengths[right_idx + 1]
+            denom_right = y2_right - y1_right
+            right_wav = w1_right if abs(denom_right) < 1e-9 else w1_right + (w2_right - w1_right) * (half_max - y1_right) / denom_right
+            self.fwhm_label.setText(f"{abs(right_wav - left_wav):.2f} nm")
+        except (ValueError, IndexError, ZeroDivisionError):
             self.fwhm_label.setText("N/A")
 
     def _auto_adjust_contrast(self):
         if self.is_roi_selection_mode or self.current_slice_float is None: return
         min_val, max_val = np.percentile(self.current_slice_float, [2, 98])
         if max_val > min_val:
-            # Adjust gain to map the 2-98 percentile range to the full 0-255 display range
             self.gain_spinbox.setValue(255.0 / (max_val - min_val))
 
 
