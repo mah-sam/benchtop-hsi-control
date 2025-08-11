@@ -277,6 +277,6 @@ If you use this software in your research, please cite it as follows:
   year = {2025},
   publisher = {GitHub},
   journal = {GitHub repository},
-  url = {https://github.com/MahmoudSameh/HSI-Control-Suite}
+  url = {https://github.com/mah-sam/benchtop-hsi-control/}
 }
 ```
