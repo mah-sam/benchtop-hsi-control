@@ -21,13 +21,10 @@
 
 The **HSI Control Suite** is a complete, open-source software application designed to manage the entire data acquisition pipeline for custom-built, benchtop push-broom hyperspectral imaging (HSI) systems. Developed in Python with a professional PyQt6 graphical user interface (GUI), this suite addresses the significant challenges of cost, operational complexity, and fragmented software workflows that often hinder HSI research.
 
-By integrating hardware control, a guided multi-step calibration wizard, automated scan execution, and powerful post-processing tools into a single, unified platform, this software transforms a collection of disparate hardware components into a cohesive, user-friendly scientific instrument.
-
 The primary outcome is a fully validated acquisition platform that streamlines the workflow from hardware setup to the generation of analysis-ready data packages, enabling researchers to create high-quality, reproducible hyperspectral datasets with ease.
+## From Hardware Blueprint to Usable Instrument
 
-## 2. From Hardware Blueprint to Usable Instrument
-
-This software project is the direct software counterpart and operational framework for the hardware system detailed in our publication:
+This software project is the direct software counterpart and operational framework for the hardware system detailed in this publication:
 
 **[Link to Your Hardware Paper]** - *HSI-Control-App: An Open-Source GUI for Real-Time Control and Data Acquisition in Benchtop Push-Broom Hyperspectral Imaging Systems*
 
@@ -40,7 +37,7 @@ The **HSI Control Suite** was developed to bridge this crucial gap. It serves as
 *   **Workflow Automation:** It automates the entire data acquisition pipeline—from guided calibration and scan execution to data packaging—drastically improving efficiency, consistency, and repeatability.
 *   **Data Integrity:** It ensures that every scan produces a standardized, self-describing HDF5 file, embedding all necessary metadata directly with the data to guarantee traceability and support reproducible science.
 
-In essence, this software completes the vision outlined in the hardware paper, delivering the end-to-end functionality required to move from a hardware blueprint to a powerful, ready-to-use research tool.
+A critical component of this integration is the custom **Arduino firmware** that runs the linear stage. This firmware acts as an intelligent, real-time motion controller, offloading the complex task of stepper motor control from the host PC. Upon startup, it performs an automated homing sequence to dynamically calibrate its operational range. It then communicates with the Python application via a robust binary serial protocol, translating high-level, normalized position commands into precise physical movements with smooth acceleration. This intelligent firmware decouples the main software from the physical hardware dimensions, ensuring reliable and repeatable scans.
 
 ---
 
