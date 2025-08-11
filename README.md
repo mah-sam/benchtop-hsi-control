@@ -1,7 +1,7 @@
 # HSI Control Suite: An Open-Source GUI for Hyperspectral Imaging
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/MahmoudSameh/HSI-Control-Suite/main/docs/images/hsi_banner.png" alt="HSI Control Suite Banner" width="800"/>
+  <img src="github/hsi_banner.png" alt="HSI Control Suite Banner" width="800"/>
 </div>
 
 <p align="center">
