@@ -1,7 +1,7 @@
 # HSI Control Suite: An Open-Source GUI for Hyperspectral Imaging
 
 <div align="center">
-  <img src="github/hsi_banner.png" alt="HSI Control Suite Banner" width="800"/>
+  <img src="github/hsi_banner.png" alt="HSI Control Suite Banner" width="80%"/>
 </div>
 
 <p align="center">
@@ -26,7 +26,7 @@ The primary outcome is a fully validated acquisition platform that streamlines t
 
 This software project is the direct software counterpart and operational framework for the hardware system detailed in this publication:
 
-**[Link to Your Hardware Paper]** - *HSI-Control-App: An Open-Source GUI for Real-Time Control and Data Acquisition in Benchtop Push-Broom Hyperspectral Imaging Systems*
+**[Link to Your Hardware Paper](https://opg.optica.org/optcon/fulltext.cfm?uri=optcon-1-2-427&id=469515)** - *Do-it-yourself VIS/NIR pushbroom hyperspectral imager with C-mount optics*
 
 The hardware paper provides a comprehensive blueprint for constructing a low-cost, high-performance push-broom HSI system from COTS components. While it details the physical assembly and validates the optical design, a functional hardware setup is only half of a complete instrument. Without a sophisticated control layer, the hardware remains a collection of parts that cannot perform the critical, synchronized tasks required for valid data acquisition.
 
