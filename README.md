@@ -46,7 +46,7 @@ Hyperspectral imaging is a powerful technique, but building and operating a cust
 This fragmentation creates a steep learning curve, introduces opportunities for error, and hinders the creation of consistent, high-quality datasets.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/MahmoudSameh/HSI-Control-Suite/main/docs/images/workflow_comparison.png" alt="Workflow Comparison Diagram" width="900"/>
+  <img src="github/figure_workflow_comparison.png" alt="Workflow Comparison Diagram" width="60%"/>
   <br>
   <em>Figure 1: Conceptual comparison between the common fragmented HSI workflow and the integrated, streamlined workflow enabled by the HSI Control Suite.</em>
 </div>
