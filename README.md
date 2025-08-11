@@ -25,6 +25,25 @@ By integrating hardware control, a guided multi-step calibration wizard, automat
 
 The primary outcome is a fully validated acquisition platform that streamlines the workflow from hardware setup to the generation of analysis-ready data packages, enabling researchers to create high-quality, reproducible hyperspectral datasets with ease.
 
+## 2. From Hardware Blueprint to Usable Instrument
+
+This software project is the direct software counterpart and operational framework for the hardware system detailed in our publication:
+
+**[Link to Your Hardware Paper]** - *HSI-Control-App: An Open-Source GUI for Real-Time Control and Data Acquisition in Benchtop Push-Broom Hyperspectral Imaging Systems*
+
+The hardware paper provides a comprehensive blueprint for constructing a low-cost, high-performance push-broom HSI system from COTS components. While it details the physical assembly and validates the optical design, a functional hardware setup is only half of a complete instrument. Without a sophisticated control layer, the hardware remains a collection of parts that cannot perform the critical, synchronized tasks required for valid data acquisition.
+
+The **HSI Control Suite** was developed to bridge this crucial gap. It serves as the "brain and central nervous system" for the hardware "body," transforming the validated physical components into a fully integrated and usable scientific instrument by solving several key challenges:
+
+*   **Synchronization:** It provides the essential software logic to precisely synchronize the camera's frame capture with the linear stage's movement, eliminating geometric distortions and ensuring the integrity of the reconstructed data cube.
+*   **Usability:** It replaces the need for low-level SDKs, command-line scripts, and manual coordination with an intuitive, user-friendly graphical interface, making the system accessible to researchers who are not programming experts.
+*   **Workflow Automation:** It automates the entire data acquisition pipeline—from guided calibration and scan execution to data packaging—drastically improving efficiency, consistency, and repeatability.
+*   **Data Integrity:** It ensures that every scan produces a standardized, self-describing HDF5 file, embedding all necessary metadata directly with the data to guarantee traceability and support reproducible science.
+
+In essence, this software completes the vision outlined in the hardware paper, delivering the end-to-end functionality required to move from a hardware blueprint to a powerful, ready-to-use research tool.
+
+---
+
 ## 2. The Problem: A Fragmented Workflow
 
 Hyperspectral imaging is a powerful technique, but building and operating a custom system is notoriously complex. Researchers often face a fragmented and inefficient workflow, relying on a patchwork of disconnected tools:
@@ -155,6 +174,42 @@ You can run the HSI Control Suite either from a pre-built executable or by runni
     ```bash
     python hsi_control_v5.py
     ```
+
+### C. Building the Executable (Advanced)
+
+For developers who wish to compile a standalone, distributable version of the application, this project includes a pre-configured `setup.py` file for use with **cx_Freeze**.
+
+#### Prerequisites
+
+1.  Ensure you have followed the steps in the **[From Source](#b-from-source-recommended-for-developers)** section to set up a Python virtual environment and install all dependencies from `requirements.txt`.
+2.  Install `cx_Freeze` in your activated virtual environment:
+    ```bash
+    pip install cx_freeze
+    ```
+
+#### Build Process
+
+1.  Open a terminal or command prompt and navigate to the root directory of the project.
+2.  Ensure your virtual environment is activated.
+3.  Run the build command:
+    ```bash
+    python setup.py build
+    ```
+4.  The build process will begin. If successful, the standalone application will be located in the newly created `build/` directory, inside a folder specific to your platform (e.g., `build/exe.win-amd64-3.10`).
+
+#### Creating a Windows Installer (MSI)
+
+To create a user-friendly MSI installer on Windows, use the `bdist_msi` command:
+```bash
+python setup.py bdist_msi
+```
+The resulting `.msi` file will be located in the `dist/` directory.
+
+#### Pre-compiled Releases
+
+For convenience, pre-compiled executables and installers for Windows are available on the project's **Releases page**. This is the recommended method for users who do not need to modify the source code.
+
+-   **[Download the latest release here](https://github.com/MahmoudSameh/HSI-Control-Suite/releases)**
 
 ## 8. Usage Workflow
 
