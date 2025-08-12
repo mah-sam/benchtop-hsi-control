@@ -126,7 +126,7 @@ You can run the HSI Control Suite either from a pre-built executable or by runni
 ### A. From Executable (Recommended for End-Users)
 
 1.  Navigate to the [**Releases**](https://github.com/MahmoudSameh/HSI-Control-Suite/releases) page of this repository.
-2.  Download the latest installer (`HSI_Control_App-vX.X.X.msi`) or the zipped executable package.
+2.  Download the latest installer or the zipped executable package.
 3.  Run the installer or extract the zip file.
 4.  Launch the `HSI_Control_App.exe`.
 
