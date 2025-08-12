@@ -83,7 +83,7 @@ The HSI Control Suite is designed from the ground up to solve these problems by 
 The software is built on a modular, multi-threaded architecture to ensure a responsive user experience and reliable hardware communication. The GUI interacts with a hardware abstraction layer, which manages the low-level communication with the camera and stage on separate threads.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/MahmoudSameh/HSI-Control-Suite/main/docs/images/system_architecture.png" alt="System Architecture Diagram" width="700"/>
+  <img src="github/figure_system_diagram.png" alt="System Architecture Diagram" width="700"/>
   <br>
   <em>Figure 2: High-level software architecture of the HSI Control Suite.</em>
 </div>
