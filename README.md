@@ -93,17 +93,17 @@ The software is built on a modular, multi-threaded architecture to ensure a resp
 <table align="center">
   <tr>
     <td align="center">
-      <img src="https://raw.githubusercontent.com/MahmoudSameh/HSI-Control-Suite/main/docs/images/main_gui.png" alt="Main GUI Screenshot" width="450">
+      <img src="figures/figure_gui_screenshot.png" alt="Main GUI Screenshot" width="450">
       <br><em>Figure 3: The main control panel, showing the real-time corrected live view and hardware control modules.</em>
     </td>
     <td align="center">
-      <img src="https://raw.githubusercontent.com/MahmoudSameh/HSI-Control-Suite/main/docs/images/acquisition_dialog.png" alt="Acquisition Dialog Screenshot" width="450">
+      <img src="figures/figure_gui_in_action.png" alt="Acquisition Dialog Screenshot" width="450">
       <br><em>Figure 4: The automated acquisition dialog with advanced save options and a live RGB preview of the ongoing scan.</em>
     </td>
   </tr>
   <tr>
     <td colspan="2" align="center">
-      <img src="https://raw.githubusercontent.com/MahmoudSameh/HSI-Control-Suite/main/docs/images/slice_analyzer.png" alt="Slice Analyzer Screenshot" width="800">
+      <img src="figures/figure_roi_analysis.png" alt="Slice Analyzer Screenshot" width="800">
       <br><em>Figure 5: The Advanced Slice Analyzer, showing an interactive spectral slice with a user-defined Region of Interest (ROI) and the resulting averaged spectrum.</em>
     </td>
   </tr>
