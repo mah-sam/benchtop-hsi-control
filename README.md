@@ -135,7 +135,7 @@ You can run the HSI Control Suite either from a pre-built executable or by runni
 
 **Prerequisites:**
 - Python 3.10 or newer.
-- **Crucial:** You must install the **FLIR Spinnaker SDK** from the official FLIR website. Make sure to install the Python bindings (`PySpin`) during the SDK installation.
+- **Crucial:** You must install the **FLIR Spinnaker SDK** from the official FLIR website. Make sure to install the Python bindings (`PySpin`) in the virtual environment you'll be creating in the next steps from the [FLIR website](https://www.teledynevisionsolutions.com/products/spinnaker-sdk/). (specifically for python 3.10).
 
 **Steps:**
 
