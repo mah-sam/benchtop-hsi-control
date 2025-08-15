@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/mah-sam/benchtop-hsi-control/releases/latest"><img src="https://img.shields.io/github/v/release/mah-sam/benchtop-hsi-control?label=Latest%20Release&color=blueviolet" alt="Latest Release"></a>
   <img src="https://img.shields.io/badge/Python-3.10-blue.svg" alt="Python Version">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/Framework-PyQt6-orange.svg" alt="Framework">
