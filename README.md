@@ -126,7 +126,7 @@ You can run the HSI Control Suite either from a pre-built executable or by runni
 
 ### A. From Executable (Recommended for End-Users)
 
-1.  Navigate to the [**Releases**](https://github.com/MahmoudSameh/HSI-Control-Suite/releases) page of this repository.
+1.  Navigate to the [**Releases**](https://github.com/mah-sam/benchtop-hsi-control/releases/latest) page of this repository.
 2.  Download the latest installer or the zipped executable package.
 3.  Run the installer or extract the zip file.
 4.  Launch the `HSI_Control_App.exe`.
@@ -198,9 +198,9 @@ The resulting `.msi` file will be located in the `dist/` directory.
 
 #### Pre-compiled Releases
 
-For convenience, pre-compiled executables and installers for Windows are available on the project's **Releases page**. This is the recommended method for users who do not need to modify the source code.
+For convenience, pre-compiled executable for Windows is available on the project's **Releases page**. This is the recommended method for users who do not need to modify the source code.
 
--   **[Download the latest release here](https://github.com/MahmoudSameh/HSI-Control-Suite/releases)**
+-   **[Download the latest release here](https://github.com/mah-sam/benchtop-hsi-control/releases/latest)**
 
 ## 8. Usage Workflow
 
