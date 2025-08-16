@@ -18,6 +18,27 @@
 
 ---
 
+## Table of Contents
+
+- [1. Introduction](#1-introduction)
+- [2. From Hardware Blueprint to Usable Instrument](#2-from-hardware-blueprint-to-usable-instrument)
+- [3. The Problem: A Fragmented Workflow](#3-the-problem-a-fragmented-workflow)
+- [4. Our Solution: Key Features](#4-our-solution-key-features)
+- [5. System Architecture](#5-system-architecture)
+- [6. Gallery](#6-gallery)
+- [7. Hardware Requirements](#7-hardware-requirements)
+- [8. Installation](#8-installation)
+  - [A. From Executable (Recommended for End-Users)](#a-from-executable-recommended-for-end-users)
+  - [B. From Source (Recommended for Developers)](#b-from-source-recommended-for-developers)
+  - [C. Building the Executable (Advanced)](#c-building-the-executable-advanced)
+- [9. Usage Workflow](#9-usage-workflow)
+- [10. Output Data Format: HDF5 Structure](#10-output-data-format-hdf5-structure)
+- [11. Contributing](#11-contributing)
+- [12. License](#12-license)
+- [13. Acknowledgments & Citation](#13-acknowledgments--citation)
+
+---
+
 ## 1. Introduction
 
 The **HSI Control Suite** is a complete, open-source software application designed to manage the entire data acquisition pipeline for custom-built, benchtop push-broom hyperspectral imaging (HSI) systems. Developed in Python with a professional PyQt6 graphical user interface (GUI), this suite addresses the significant challenges of cost, operational complexity, and fragmented software workflows that often hinder HSI research.
