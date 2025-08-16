@@ -44,6 +44,7 @@
 The **HSI Control Suite** is a complete, open-source software application designed to manage the entire data acquisition pipeline for custom-built, benchtop push-broom hyperspectral imaging (HSI) systems. Developed in Python with a professional PyQt6 graphical user interface (GUI), this suite addresses the significant challenges of cost, operational complexity, and fragmented software workflows that often hinder HSI research.
 
 The primary outcome is a fully validated acquisition platform that streamlines the workflow from hardware setup to the generation of analysis-ready data packages, enabling researchers to create high-quality, reproducible hyperspectral datasets with ease.
+
 ## 2. From Hardware Blueprint to Usable Instrument
 
 This software project is the direct software counterpart and operational framework for the hardware system detailed in this publication:
@@ -56,7 +57,7 @@ The **HSI Control Suite** was developed to bridge this crucial gap. It serves as
 
 ---
 
-## 2. The Problem: A Fragmented Workflow
+## 3. The Problem: A Fragmented Workflow
 
 Hyperspectral imaging is a powerful technique, but building and operating a custom system is notoriously complex. Researchers often face a fragmented and inefficient workflow, relying on a patchwork of disconnected tools:
 - **Manufacturer SDKs:** Low-level, command-line tools for basic camera control.
@@ -73,7 +74,7 @@ This fragmentation creates a steep learning curve, introduces opportunities for 
   <em>Figure 1: Conceptual comparison between the common fragmented HSI workflow and the integrated, streamlined workflow enabled by the HSI Control Suite.</em>
 </div>
 
-## 3. Our Solution: Key Features
+## 4. Our Solution: Key Features
 
 The HSI Control Suite is designed from the ground up to solve these problems by providing a seamless, end-to-end solution.
 
@@ -100,7 +101,7 @@ The HSI Control Suite is designed from the ground up to solve these problems by 
 
 - **Open-Source and Extensible:** The entire codebase is written in Python, making it easy to modify, extend, or integrate with other scientific libraries.
 
-## 4. System Architecture
+## 5. System Architecture
 
 The software is built on a modular, multi-threaded architecture to ensure a responsive user experience and reliable hardware communication. The GUI interacts with a hardware abstraction layer, which manages the low-level communication with the camera and stage on separate threads.
 
@@ -110,7 +111,7 @@ The software is built on a modular, multi-threaded architecture to ensure a resp
   <em>Figure 2: High-level software architecture of the HSI Control Suite.</em>
 </div>
 
-## 5. Gallery
+## 6. Gallery
 
 <table align="center">
   <tr>
@@ -131,7 +132,7 @@ The software is built on a modular, multi-threaded architecture to ensure a resp
   </tr>
 </table>
 
-## 6. Hardware Requirements
+## 7. Hardware Requirements
 
 This software is designed to control a specific set of COTS and custom-fabricated hardware. While adaptable, the default configuration requires:
 
@@ -141,7 +142,7 @@ This software is designed to control a specific set of COTS and custom-fabricate
 - **Motor:** A **NEMA-17** stepper motor.
 - **Illumination:** Stable, broad-spectrum lighting (e.g., halogen lamps).
 
-## 7. Installation
+## 8. Installation
 
 You can run the HSI Control Suite either from a pre-built executable or by running the source code directly.
 
@@ -223,7 +224,7 @@ For convenience, pre-compiled executable for Windows is available on the project
 
 -   **[Download the latest release here](https://github.com/mah-sam/benchtop-hsi-control/releases/latest)**
 
-## 8. Usage Workflow
+## 9. Usage Workflow
 
 The software is designed to guide the user through a logical workflow:
 
@@ -245,7 +246,7 @@ The software is designed to guide the user through a logical workflow:
     - Use the "Post-Scan Labeling" and "Post-Scan Cropping" tools as needed.
     - For in-depth analysis, launch the "Advanced Slice Analyzer" from the `Tools` menu and open the newly created HDF5 file.
 
-## 9. Output Data Format: HDF5 Structure
+## 10. Output Data Format: HDF5 Structure
 
 The HSI Control Suite produces a single, comprehensive HDF5 file for each scan, ensuring data integrity and portability. The internal structure is as follows:
 
@@ -269,7 +270,7 @@ The HSI Control Suite produces a single, comprehensive HDF5 file for each scan, 
 │                   Shape: (scan_length_pixels, spatial_width_pixels)
 ```
 
-## 10. Contributing
+## 11. Contributing
 
 Contributions are welcome! If you would like to contribute to the project, please follow these steps:
 1.  Fork the repository.
@@ -280,11 +281,11 @@ Contributions are welcome! If you would like to contribute to the project, pleas
 
 Please report any bugs or suggest features by opening an issue on the GitHub repository.
 
-## 11. License
+## 12. License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 12. Acknowledgments & Citation
+## 13. Acknowledgments & Citation
 
 This research was supported by the Undergraduate Research Office and Electrical Engineering Department at King Fahd University of Petroleum and Minerals (KFUPM) through the KFUPM Inbound Summer Research Program (T243).
 
