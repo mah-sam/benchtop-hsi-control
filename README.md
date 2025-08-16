@@ -129,7 +129,7 @@ You can run the HSI Control Suite either from a pre-built executable or by runni
 1.  Navigate to the [**Releases**](https://github.com/mah-sam/benchtop-hsi-control/releases/latest) page of this repository.
 2.  Download the latest installer or the zipped executable package.
 3.  Run the installer or extract the zip file.
-4.  Launch the `HSI_Control_App.exe`.
+4.  Launch the `.exe` file.
 
 ### B. From Source (Recommended for Developers)
 
