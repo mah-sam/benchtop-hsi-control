@@ -5,7 +5,7 @@
 </div>
 
 <p align="center">
-  <strong>Unified Control, Initial Calibration, and Data Acquisition for DIY Benchtop Push-Broom Hyperspectral Imaging Systems</strong>
+  <strong>A Unified Framework For Rapid Raw Data Collection From Benchtop Push-Broom Hyperspectral Imaging Systems</strong>
 </p>
 
 <p align="center">
