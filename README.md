@@ -31,11 +31,14 @@
   - [A. From Executable (Recommended for End-Users)](#a-from-executable-recommended-for-end-users)
   - [B. From Source (Recommended for Developers)](#b-from-source-recommended-for-developers)
   - [C. Building the Executable (Advanced)](#c-building-the-executable-advanced)
-- [9. Usage Workflow](#9-usage-workflow)
-- [10. Output Data Format: HDF5 Structure](#10-output-data-format-hdf5-structure)
-- [11. Contributing](#11-contributing)
-- [12. License](#12-license)
-- [13. Acknowledgments & Citation](#13-acknowledgments--citation)
+- [9. Testing with Sample Data](#9-testing-with-sample-data)
+  - [A. Testing the Calibration Wizard](#a-testing-the-calibration-wizard)
+  - [B. Testing the Analysis Tools](#b-testing-the-analysis-tools)
+- [10. Usage Workflow](#10-usage-workflow)
+- [11. Output Data Format: HDF5 Structure](#11-output-data-format-hdf5-structure)
+- [12. Contributing](#12-contributing)
+- [13. License](#13-license)
+- [14. Acknowledgments & Citation](#14-acknowledgments--citation)
 
 ---
 
@@ -163,8 +166,8 @@ You can run the HSI Control Suite either from a pre-built executable or by runni
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/MahmoudSameh/HSI-Control-Suite.git
-    cd HSI-Control-Suite
+    git clone https://github.com/mah-sam/benchtop-hsi-control.git
+    cd benchtop-hsi-control
     ```
 
 2.  **Create and activate a virtual environment:**
@@ -224,7 +227,42 @@ For convenience, pre-compiled executable for Windows is available on the project
 
 -   **[Download the latest release here](https://github.com/mah-sam/benchtop-hsi-control/releases/latest)**
 
-## 9. Usage Workflow
+## 9. Testing with Sample Data
+
+To allow users to test the full functionality of the HSI Control Suite without needing the physical hardware, a complete set of sample data is provided in the `/sample_data/` directory.
+
+### A. Testing the Calibration Wizard
+
+You can run the entire calibration process using the provided sample images.
+
+1.  Launch the HSI Control Suite application.
+2.  Navigate to `Calibration > Run Calibration Wizard...`.
+3.  Follow the wizard's steps, using the specified files at each prompt:
+    *   **Step 1: Straightening:** When prompted for an image with vertical lines to correct for tilt, select:
+        `sample_data/calibration/white_stripes.png`
+    *   **Step 2: Cropping:** When prompted for an image to define the sensor's active area, select:
+        `sample_data/calibration/exposed_sensor.png`
+    *   **Step 3: Spectral Calibration:** The wizard will ask you to load images of known wavelengths to create a wavelength-to-pixel map. For each prompt, load the corresponding file and enter its wavelength value:
+        - Load `sample_data/calibration/460nm.png` and enter `460`.
+        - Load `sample_data/calibration/560nm.png` and enter `560`.
+        - Load `sample_data/calibration/660nm.png` and enter `660`.
+        - Load `sample_data/calibration/910nm.png` and enter `910`.
+4.  Upon completion, the wizard will successfully generate a `master_calibration.json` file, demonstrating that the calibration logic is working correctly.
+
+### B. Testing the Analysis Tools
+
+You can test the post-processing and analysis features using the pre-acquired hyperspectral data cubes.
+
+1.  In the main application, go to `Tools > Advanced Slice Analyzer...`.
+2.  In the Slice Analyzer window, go to `File > Open HDF5 Data Cube...`.
+3.  Select one of the sample cubes, for example:
+    `sample_data/sample_cubes/scan_20250803_155324_cropped.h5`
+4.  The data cube will load, and you can now test all the features of the analyzer:
+    *   Navigate through spectral slices.
+    *   Click on any pixel to plot its spectrum.
+    *   Use the "Magic Wand" and brush tools to define a Region of Interest (ROI) and view the averaged spectrum.
+
+## 10. Usage Workflow
 
 The software is designed to guide the user through a logical workflow:
 
@@ -246,7 +284,7 @@ The software is designed to guide the user through a logical workflow:
     - Use the "Post-Scan Labeling" and "Post-Scan Cropping" tools as needed.
     - For in-depth analysis, launch the "Advanced Slice Analyzer" from the `Tools` menu and open the newly created HDF5 file.
 
-## 10. Output Data Format: HDF5 Structure
+## 11. Output Data Format: HDF5 Structure
 
 The HSI Control Suite produces a single, comprehensive HDF5 file for each scan, ensuring data integrity and portability. The internal structure is as follows:
 
@@ -270,7 +308,7 @@ The HSI Control Suite produces a single, comprehensive HDF5 file for each scan, 
 │                   Shape: (scan_length_pixels, spatial_width_pixels)
 ```
 
-## 11. Contributing
+## 12. Contributing
 
 Contributions are welcome! If you would like to contribute to the project, please follow these steps:
 1.  Fork the repository.
@@ -281,11 +319,11 @@ Contributions are welcome! If you would like to contribute to the project, pleas
 
 Please report any bugs or suggest features by opening an issue on the GitHub repository.
 
-## 12. License
+## 13. License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 13. Acknowledgments & Citation
+## 14. Acknowledgments & Citation
 
 This research was supported by the Undergraduate Research Office and Electrical Engineering Department at King Fahd University of Petroleum and Minerals (KFUPM) through the KFUPM Inbound Summer Research Program (T243).
 
