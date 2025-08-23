@@ -3,13 +3,14 @@
 <div align="center">
   <img src="github/hsi_banner.png" alt="HSI Control Suite Banner" width="80%"/>
 </div>
-
+    
 <p align="center">
   <strong>Unified Control, Initial Calibration, and Data Acquisition for DIY Benchtop Push-Broom Hyperspectral Imaging Systems</strong>
 </p>
 
 <p align="center">
   <a href="https://github.com/mah-sam/benchtop-hsi-control/releases/latest"><img src="https://img.shields.io/github/v/release/mah-sam/benchtop-hsi-control?label=Latest%20Release&color=blueviolet" alt="Latest Release"></a>
+  <a href="https://doi.org/10.5281/zenodo.16931579"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.16931579.svg" alt="DOI"></a>
   <img src="https://img.shields.io/badge/Python-3.10-blue.svg" alt="Python Version">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/Framework-PyQt6-orange.svg" alt="Framework">
@@ -344,12 +345,15 @@ We thank Ibrahim Azeem for assistance with microcontroller firmware and Asim Al-
 If you use this software in your research, please cite it as follows:
 
 ```bibtex
-@software{Sameh_HSI_Control_Suite_2025,
-  author = {Sameh, Mahmoud and Albeladi, Ali},
-  title = {{HSI Control Suite: An Open-Source GUI for Real-Time Control and Data Acquisition in Benchtop Push-Broom Hyperspectral Imaging Systems}},
-  year = {2025},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  url = {https://github.com/mah-sam/benchtop-hsi-control/}
+@software{Sameh_HSI_Control_Suite_2024,
+  author       = {Sameh, Mahmoud and
+                  Albeladi, Ali},
+  title        = {{HSI Control Suite: An Open-Source GUI for Hyperspectral Imaging}},
+  month        = jun,
+  year         = 2024,
+  publisher    = {Zenodo},
+  version      = {v1.0.0},
+  doi          = {10.5281/zenodo.16931579},
+  url          = {https://doi.org/10.5281/zenodo.16931579}
 }
 ```
