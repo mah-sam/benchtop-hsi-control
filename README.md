@@ -5,7 +5,7 @@
 </div>
 
 <p align="center">
-  <strong>A Unified Framework For Rapid Raw Data Collection From Benchtop Push-Broom Hyperspectral Imaging Systems</strong>
+  <strong>Unified Control, Initial Calibration, and Data Acquisition for DIY Benchtop Push-Broom Hyperspectral Imaging Systems</strong>
 </p>
 
 <p align="center">
@@ -24,21 +24,22 @@
 - [2. From Hardware Blueprint to Usable Instrument](#2-from-hardware-blueprint-to-usable-instrument)
 - [3. The Problem: A Fragmented Workflow](#3-the-problem-a-fragmented-workflow)
 - [4. Our Solution: Key Features](#4-our-solution-key-features)
-- [5. System Architecture](#5-system-architecture)
-- [6. Gallery](#6-gallery)
-- [7. Hardware Requirements](#7-hardware-requirements)
-- [8. Installation](#8-installation)
+- [5. Scope and Future Work](#5-scope-and-future-work)
+- [6. System Architecture](#6-system-architecture)
+- [7. Gallery](#7-gallery)
+- [8. Hardware Requirements](#8-hardware-requirements)
+- [9. Installation](#9-installation)
   - [A. From Executable (Recommended for End-Users)](#a-from-executable-recommended-for-end-users)
   - [B. From Source (Recommended for Developers)](#b-from-source-recommended-for-developers)
   - [C. Building the Executable (Advanced)](#c-building-the-executable-advanced)
-- [9. Testing with Sample Data](#9-testing-with-sample-data)
+- [10. Testing with Sample Data](#10-testing-with-sample-data)
   - [A. Testing the Calibration Wizard](#a-testing-the-calibration-wizard)
   - [B. Testing the Analysis Tools](#b-testing-the-analysis-tools)
-- [10. Usage Workflow](#10-usage-workflow)
-- [11. Output Data Format: HDF5 Structure](#11-output-data-format-hdf5-structure)
-- [12. Contributing](#12-contributing)
-- [13. License](#13-license)
-- [14. Acknowledgments & Citation](#14-acknowledgments--citation)
+- [11. Usage Workflow](#11-usage-workflow)
+- [12. Output Data Format: HDF5 Structure](#12-output-data-format-hdf5-structure)
+- [13. Contributing](#13-contributing)
+- [14. License](#14-license)
+- [15. Acknowledgments & Citation](#15-acknowledgments--citation)
 
 ---
 
@@ -104,7 +105,18 @@ The HSI Control Suite is designed from the ground up to solve these problems by 
 
 - **Open-Source and Extensible:** The entire codebase is written in Python, making it easy to modify, extend, or integrate with other scientific libraries.
 
-## 5. System Architecture
+## 5. Scope and Future Work
+
+The HSI Control Suite is designed primarily as a robust **data acquisition engine**. Its main goal is to solve the immediate and complex challenge of synchronized hardware control, guided calibration, and the generation of pristine, well-documented raw data cubes.
+
+While the current version provides essential post-processing tools (labeling, cropping, ROI analysis), more advanced calibration and data conversion steps are planned as future enhancements.
+
+-   **Radiometric Calibration:** Converting the raw data to absolute reflectance using white/dark references is a critical step for many quantitative studies. This is often an offline, post-processing task that requires the same raw data that our system already captures. Future work will involve integrating a dedicated module to perform this calibration on the saved HDF5 files.
+-   **ENVI File Support:** The HDF5 format was chosen for its ability to store all data and metadata in a single, self-describing file. However, the ENVI format is a standard in the HSI community. A future update will include a utility to export the data from HDF5 files to the ENVI format, enhancing interoperability with other analysis tools like ENVI® and Vespucci.
+
+The current architecture ensures that users can acquire the necessary high-quality raw data today, which remains fully compatible with these future post-processing workflows.
+
+## 6. System Architecture
 
 The software is built on a modular, multi-threaded architecture to ensure a responsive user experience and reliable hardware communication. The GUI interacts with a hardware abstraction layer, which manages the low-level communication with the camera and stage on separate threads.
 
@@ -114,7 +126,7 @@ The software is built on a modular, multi-threaded architecture to ensure a resp
   <em>Figure 2: High-level software architecture of the HSI Control Suite.</em>
 </div>
 
-## 6. Gallery
+## 7. Gallery
 
 <table align="center">
   <tr>
@@ -135,7 +147,7 @@ The software is built on a modular, multi-threaded architecture to ensure a resp
   </tr>
 </table>
 
-## 7. Hardware Requirements
+## 8. Hardware Requirements
 
 This software is designed to control a specific set of COTS and custom-fabricated hardware. While adaptable, the default configuration requires:
 
@@ -145,7 +157,7 @@ This software is designed to control a specific set of COTS and custom-fabricate
 - **Motor:** A **NEMA-17** stepper motor.
 - **Illumination:** Stable, broad-spectrum lighting (e.g., halogen lamps).
 
-## 8. Installation
+## 9. Installation
 
 You can run the HSI Control Suite either from a pre-built executable or by running the source code directly.
 
@@ -227,7 +239,7 @@ For convenience, pre-compiled executable for Windows is available on the project
 
 -   **[Download the latest release here](https://github.com/mah-sam/benchtop-hsi-control/releases/latest)**
 
-## 9. Testing with Sample Data
+## 10. Testing with Sample Data
 
 To allow users to test the full functionality of the HSI Control Suite without needing the physical hardware, a complete set of sample data is provided in the `/sample_data/` directory.
 
@@ -262,7 +274,7 @@ You can test the post-processing and analysis features using the pre-acquired hy
     *   Click on any pixel to plot its spectrum.
     *   Use the "Magic Wand" and brush tools to define a Region of Interest (ROI) and view the averaged spectrum.
 
-## 10. Usage Workflow
+## 11. Usage Workflow
 
 The software is designed to guide the user through a logical workflow:
 
@@ -284,7 +296,7 @@ The software is designed to guide the user through a logical workflow:
     - Use the "Post-Scan Labeling" and "Post-Scan Cropping" tools as needed.
     - For in-depth analysis, launch the "Advanced Slice Analyzer" from the `Tools` menu and open the newly created HDF5 file.
 
-## 11. Output Data Format: HDF5 Structure
+## 12. Output Data Format: HDF5 Structure
 
 The HSI Control Suite produces a single, comprehensive HDF5 file for each scan, ensuring data integrity and portability. The internal structure is as follows:
 
@@ -308,7 +320,7 @@ The HSI Control Suite produces a single, comprehensive HDF5 file for each scan, 
 │                   Shape: (scan_length_pixels, spatial_width_pixels)
 ```
 
-## 12. Contributing
+## 13. Contributing
 
 Contributions are welcome! If you would like to contribute to the project, please follow these steps:
 1.  Fork the repository.
@@ -319,11 +331,11 @@ Contributions are welcome! If you would like to contribute to the project, pleas
 
 Please report any bugs or suggest features by opening an issue on the GitHub repository.
 
-## 13. License
+## 14. License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 14. Acknowledgments & Citation
+## 15. Acknowledgments & Citation
 
 This research was supported by the Undergraduate Research Office and Electrical Engineering Department at King Fahd University of Petroleum and Minerals (KFUPM) through the KFUPM Inbound Summer Research Program (T243).
 
