@@ -1,4 +1,4 @@
-# HSI Control Suite: An Open-Source GUI for Hyperspectral Imaging
+# HSI Control Suite: An End-to-End GUI for Operating and Acquiring Data from DIY Push-Broom Hyperspectral Imaging Systems
 
 <div align="center">
   <img src="github/hsi_banner.png" alt="HSI Control Suite Banner" width="80%"/>
@@ -345,12 +345,12 @@ We thank Ibrahim Azeem for assistance with microcontroller firmware and Asim Al-
 If you use this software in your research, please cite it as follows:
 
 ```bibtex
-@software{Sameh_HSI_Control_Suite_2024,
+@software{Sameh_HSI_Control_Suite_2025,
   author       = {Sameh, Mahmoud and
                   Albeladi, Ali},
-  title        = {{HSI Control Suite: An Open-Source GUI for Hyperspectral Imaging}},
-  month        = jun,
-  year         = 2024,
+  title        = {{HSI Control Suite: An End-to-End GUI for Operating and Acquiring Data from DIY Push-Broom Hyperspectral Imaging Systems}},
+  month        = aug,
+  year         = 2025,
   publisher    = {Zenodo},
   version      = {v1.0.0},
   doi          = {10.5281/zenodo.16931579},
