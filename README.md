@@ -1,4 +1,4 @@
-# HSI Control Suite: An End-to-End GUI for Operating and Acquiring Data from DIY Push-Broom Hyperspectral Imaging Systems
+# HSI Control Suite: An Integrated GUI for Operating and Acquiring Data from DIY Push-Broom Hyperspectral Imaging Systems
 
 <div align="center">
   <img src="github/hsi_banner.png" alt="HSI Control Suite Banner" width="80%"/>
