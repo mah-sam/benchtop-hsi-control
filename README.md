@@ -348,7 +348,7 @@ If you use this software in your research, please cite it as follows:
 @software{Sameh_HSI_Control_Suite_2025,
   author       = {Sameh, Mahmoud and
                   Albeladi, Ali},
-  title        = {{HSI Control Suite: An End-to-End GUI for Operating and Acquiring Data from DIY Push-Broom Hyperspectral Imaging Systems}},
+  title        = {{HSI Control Suite: An Integrated GUI for Operating and Acquiring Data from DIY Push-Broom Hyperspectral Imaging Systems}},
   month        = aug,
   year         = 2025,
   publisher    = {Zenodo},
