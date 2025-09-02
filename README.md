@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/mah-sam/benchtop-hsi-control/releases/latest"><img src="https://img.shields.io/github/v/release/mah-sam/benchtop-hsi-control?label=Latest%20Release&color=blueviolet" alt="Latest Release"></a>
-  <a href="https://doi.org/10.5281/zenodo.16931579"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.16931579.svg" alt="DOI"></a>
+  <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.16931579.svg" alt="DOI">
   <img src="https://img.shields.io/badge/Python-3.10-blue.svg" alt="Python Version">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/Framework-PyQt6-orange.svg" alt="Framework">
