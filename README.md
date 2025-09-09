@@ -460,7 +460,7 @@ To function correctly, the main application requires the `StageController` to pr
 
 ### B. Adapting the Camera Controller
 
-Similar to the stage controller, the `CameraController` class in `camera_controller.py` is a hardware abstraction layer. It encapsulates all the complex, hardware-specific logic for communicating with a FLIR camera via the Spinnaker SDK. This modular design allows you to substitute the default implementation to support other cameras—such as those from Basler (using Pylon), Allied Vision (using Vimba), or even a standard webcam (using OpenCV)—without altering the main application's code.
+Similar to the stage controller, the `CameraController` class in `camera_controller.py` is a hardware abstraction layer. It encapsulates all the complex, hardware-specific logic for communicating with a FLIR camera via the Spinnaker SDK. This modular design allows you to substitute the default implementation to support other cameras—such as those from Basler (using Pylon), Allied Vision (using Vimba), or even a standard webcam (using OpenCV)—without altering the main application's code. If your camera uses Spinnaker or if it's a Flir camera, you don't need to change this class.
 
 This guide explains the purpose of each key method in the `CameraController` and the requirements your new code must meet to integrate a different camera system.
 
