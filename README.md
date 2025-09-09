@@ -324,187 +324,131 @@ The HSI Control Suite produces a single, comprehensive HDF5 file for each scan, 
 
 ---
 
-### 13. Adapting the Stage Controller for Custom Hardware
+## 13. Adapting the Stage Controller for Custom Hardware
 
-The HSI Control Suite is designed to be adaptable. If your laboratory uses a different linear stage—such as a commercial model from Thorlabs, Zaber, or another manufacturer—you can modify the `StageController` class to control it. The key is to change the *internal* logic of the class while keeping its *external* interface (the methods and signals the main GUI calls) the same.
+The HSI Control Suite is intentionally designed to be modular. The `StageController` class in `hardware/stage_controller.py` acts as a "translator" between the main graphical user interface (GUI) and the physical linear stage. This design allows you to replace the default Arduino-based control logic with a new implementation for your specific hardware (e.g., a commercial stage from Thorlabs, Zaber, Newport, etc.) without modifying the rest of the application.
 
-This guide outlines the specific parts of the `hardware/stage_controller.py` file you will need to modify.
+This guide explains the purpose of each key method in the `StageController` and the requirements your new code must meet to ensure seamless integration.
 
-#### The Core Task: Translate Commands
+#### The "API Contract": What the GUI Expects
 
-Your primary goal is to make the `StageController` class "speak" the language of your new hardware. The main application will still send it the same simple commands (e.g., `move_to(position=150, speed=500)`), and your modified code will be responsible for translating those commands into the specific format your new stage understands (e.g., a different serial command, a call to a manufacturer's SDK, etc.).
+To function correctly, the main application requires the `StageController` to provide a specific set of methods and signals. Think of this as a contract. As long as your modified class honors this contract, the GUI will work perfectly with your custom hardware.
+
+**Your custom controller MUST provide:**
+
+*   **Methods:** `connect()`, `disconnect()`, `move_to(position, speed)`
+*   **Signals:** `status_update(str)`, `homing_complete()`, `connection_lost()`
 
 ---
 
-#### Step-by-Step Modification Guide
+### Step-by-Step Modification Guide
 
-Follow these steps to adapt the `StageController` class.
+#### 1. The `connect()` Method
 
-##### Step 1: Modify the Connection Logic (`connect` method)
+*   **Goal:** To establish a connection with your hardware and perform any necessary initialization, such as homing. The GUI calls this method when the user clicks "Connect All Devices."
 
-The current `connect` method is written specifically to find and communicate with an Arduino. You must replace this with the connection procedure for your hardware.
+*   **What to Replace:** The entire logic inside the `connect()` and `_find_arduino_port()` methods. The current code specifically scans serial ports for an Arduino and waits for it to reset. This is unique to the default hardware.
 
-*   **What to Replace:** The entire contents of the `connect` and `_find_arduino_port` methods. The logic that scans COM ports for "arduino" and opens a `pyserial` connection is specific to the current setup.
+*   **Your Replacement Code Must:**
+    1.  Contain all the necessary steps to find and open a communication channel to your hardware (e.g., opening a specific COM port, connecting via a vendor's SDK, etc.).
+    2.  Trigger the hardware's homing or initialization sequence. This is essential for establishing a reliable zero position.
+    3.  **Crucially**, upon successful connection and completion of homing, it must set `self.is_connected = True` and `self.is_homed = True`.
+    4.  **It must emit the `homing_complete` signal.** The GUI's motion controls are disabled until this signal is received. This tells the rest of the application that the stage is ready for commands.
+    5.  Emit `status_update` signals to provide feedback to the user in the log window (e.g., "Connecting to Zaber Stage...", "Homing complete.").
+    6.  Return `True` on success and `False` on failure.
+
+*   **Example (using a hypothetical vendor SDK):**
     ```python
-    # In the connect method:
-    # REMOVE THIS ARDUINO-SPECIFIC LOGIC
-    port = self._find_arduino_port()
-    if not port:
-        self.status_update.emit("Error: Arduino controller not found.")
-        return False
-    try:
-        self.serial = serial.Serial(port, 9600, timeout=0.1)
-        time.sleep(2) # This delay for Arduino reset is likely not needed
-        # ... and the rest of the try/except block
-    ```
-
-*   **What to Add:** The logic required to connect to your new hardware.
-    *   **If your stage uses a vendor SDK (e.g., Thorlabs Kinesis, Zaber Motion Library):**
-        ```python
-        # EXAMPLE for a hypothetical SDK
+    def connect(self):
         try:
+            # Step 1: Establish communication
             from vendor_sdk import Stage
-            self.stage_device = Stage.connect("device_serial_number") # Connect via SDK
-            self.stage_device.enable()
-            self.stage_device.home() # Command the stage to home
-            
+            self.stage_device = Stage.connect("SERIAL_NUMBER_XYZ")
+            self.status_update.emit("Successfully connected to MyStage.")
+
+            # Step 2: Initialize and home the device
+            self.status_update.emit("Homing stage... Please wait.")
+            self.stage_device.home() # This is a blocking call that waits for homing to finish
+
+            # Step 3 & 4: Update state and notify the GUI
             self.is_connected = True
-            self.status_update.emit("Successfully connected to [Your Stage Name].")
-            
-            # CRITICAL: Once homing is complete, you MUST emit this signal
             self.is_homed = True
-            self.homing_complete.emit()
+            self.homing_complete.emit() # CRITICAL: This unlocks the GUI controls
+            self.status_update.emit("Stage is homed and ready.")
             
+            # Step 6: Return success
             return True
         except Exception as e:
-            self.status_update.emit(f"Error connecting to [Your Stage Name]: {e}")
+            self.status_update.emit(f"Error connecting to stage: {e}")
             return False
-        ```
-    *   **If your stage uses simple ASCII commands over serial:**
-        ```python
-        # EXAMPLE for an ASCII-based controller
-        try:
-            # You might connect to a fixed COM port
-            self.serial = serial.Serial('COM4', 9600, timeout=1) 
-            self.serial.write(b"HOME\n") # Send homing command
-            response = self.serial.readline().decode()
-            if "OK" in response:
-                self.is_connected = True
-                self.is_homed = True
-                self.status_update.emit("Successfully connected to stage on COM4.")
-                self.homing_complete.emit() # Signal that it's ready
-                return True
-            else:
-                # Handle error
-                return False
-        except serial.SerialException as e:
-            self.status_update.emit(f"Error: {e}")
-            return False
-        ```
+    ```
 
-##### Step 2: Modify the Movement Command (`move_to` method)
+#### 2. The `move_to(position, speed)` Method
 
-This is the most important method. The GUI sends a normalized `position` (10-250) and `speed` (50-1000). You must translate these abstract values into the physical units your stage understands (e.g., millimeters, steps, etc.).
+*   **Goal:** To translate an abstract position and speed command from the GUI into a physical movement command for your hardware.
 
-*   **What to Replace:** The binary packing logic inside the `try` block.
+*   **A Note on Normalization:** The GUI uses a normalized `position` range of **10 to 250** and a `speed` range of **50 to 1000**. This is intentional. It decouples the GUI from the physical dimensions of any specific stage. Your job in this method is to map these abstract numbers to the real-world units your stage uses (e.g., millimeters, steps, mm/s).
+
+*   **What to Replace:** The binary packing logic inside the `move_to()` method. The `struct.pack` command creates a 3-byte packet specifically for the Arduino firmware.
     ```python
-    # In the move_to method:
-    # REMOVE THIS ARDUINO-SPECIFIC LOGIC
+    # REMOVE THIS ARDUINO-SPECIFIC CODE
     command_packet = struct.pack('<BH', position, speed)
     self.serial.write(command_packet)
     ```
 
-*   **What to Add:** The logic to translate the normalized values and send the command to your hardware. You will need to determine the physical travel range of your stage (e.g., 0 to 100 mm).
+*   **Your Replacement Code Must:**
+    1.  Perform a mathematical mapping from the input `position` (10-250) to a physical position that your hardware understands.
+    2.  (If necessary) Perform a similar mapping for the input `speed`.
+    3.  Send the resulting physical command to your hardware using its specific protocol (e.g., an SDK function call or a serial command string).
+    4.  Include error handling in case the command fails (e.g., the device was disconnected).
 
+*   **Example (mapping to a 150mm stage):**
     ```python
-    # EXAMPLE: Mapping normalized values to a physical stage (0-100mm range)
-    
-    # Define your stage's physical limits (you can set these in __init__)
-    MIN_PHYSICAL_POS = 0.0  # e.g., in mm
-    MAX_PHYSICAL_POS = 100.0 # e.g., in mm
-    
-    # --- Inside the move_to method ---
-    
-    # 1. Map the normalized position (10-250) to your physical range
-    # This is a simple linear mapping (y = mx + c)
-    normalized_input_range = 250 - 10
-    physical_range = MAX_PHYSICAL_POS - MIN_PHYSICAL_POS
-    scale_factor = physical_range / normalized_input_range
-    target_physical_pos = MIN_PHYSICAL_POS + ((position - 10) * scale_factor)
+    def move_to(self, position: int, speed: int = 100):
+        if not self.is_connected or not self.is_homed:
+            self.status_update.emit("Error: Stage not ready for move commands.")
+            return
 
-    # 2. Map the normalized speed (50-1000) similarly if needed
-    # (Or you can just pass the speed value if your SDK handles it)
-    target_physical_speed = speed # This might require scaling too
-    
-    # 3. Send the command to your hardware
-    try:
-        # If using an SDK:
-        self.stage_device.move_to(target_physical_pos, speed=target_physical_speed)
-        
-        # If using ASCII commands:
-        # command = f"GOTO {target_physical_pos:.2f} F{target_physical_speed}\n"
-        # self.serial.write(command.encode())
-        
-        self.status_update.emit(f"Command sent: Move to {target_physical_pos:.2f} mm.")
-    
-    except Exception as e:
-        self.status_update.emit(f"Error sending command: {e}")
-        self.connection_lost.emit()
+        # --- Step 1: Map the normalized position ---
+        # Define physical limits of your stage (e.g., in mm)
+        MIN_PHYSICAL_POS = 0.0
+        MAX_PHYSICAL_POS = 150.0
+
+        # Linear mapping from GUI range (10-250) to physical range
+        normalized_range = 250 - 10
+        physical_range = MAX_PHYSICAL_POS - MIN_PHYSICAL_POS
+        scale = physical_range / normalized_range
+        target_mm = MIN_PHYSICAL_POS + ((position - 10) * scale)
+
+        # --- Step 2: Map speed (optional, depends on hardware) ---
+        target_speed_mms = speed / 10.0 # Example: map 50-1000 to 5-100 mm/s
+
+        # --- Step 3: Send the command ---
+        try:
+            self.status_update.emit(f"Moving to {target_mm:.2f} mm at {target_speed_mms} mm/s.")
+            self.stage_device.move_absolute(target_mm, speed=target_speed_mms)
+        except Exception as e: # Catch potential communication errors
+            self.status_update.emit(f"Error sending move command: {e}")
+            self.connection_lost.emit() # Notify GUI of the failure
     ```
 
-##### Step 3: Modify or Remove the Feedback Handling
+#### 3. The `disconnect()` Method
 
-The current implementation uses a separate thread (`SerialReaderThread`) to listen for messages like "System ready" from the Arduino. Your hardware may not need this.
+*   **Goal:** To safely close the connection to the hardware and clean up any resources.
 
-*   **Scenario A: Your hardware provides instant feedback (synchronous).**
-    If your `connect()` or `move_to()` commands block until the action is complete, you likely **do not need the reader thread**.
-    1.  You can remove the `_start_reader_thread`, `_handle_serial_data` methods and the `SerialReaderThread` class entirely.
-    2.  In the `connect` method, simply call your hardware's homing function and, once it returns, emit `self.homing_complete.emit()`.
-    3.  In the `disconnect` method, remove the lines that stop the thread.
+*   **What to Replace:** The Arduino-specific logic (stopping the reader thread, closing the serial port).
 
-*   **Scenario B: Your hardware provides asynchronous feedback.**
-    If your stage sends messages back at unpredictable times (like the Arduino), you will need to adapt the feedback handler.
-    1.  Keep the `SerialReaderThread` (or a similar mechanism).
-    2.  Modify the `_handle_serial_data` method to parse the specific messages your hardware sends.
-        ```python
-        # In _handle_serial_data method:
-        # REPLACE THIS LOGIC
-        if "System ready" in data:
-            self.is_homed = True
-            self.homing_complete.emit()
-            
-        # WITH LOGIC FOR YOUR HARDWARE
-        # For example:
-        if "Homing Complete" in data:
-            self.is_homed = True
-            self.homing_complete.emit()
-        elif "Error: Limit Hit" in data:
-            self.status_update.emit("Hardware Error: A limit switch was triggered unexpectedly.")
-        ```
+*   **Your Replacement Code Must:**
+    1.  Call the appropriate function to safely disconnect from your hardware (e.g., `device.disconnect()`, `serial.close()`).
+    2.  Reset the internal state flags: `self.is_connected = False` and `self.is_homed = False`.
 
-##### Step 4: Modify the `disconnect` Method
+#### 4. Handling Asynchronous Feedback (`SerialReaderThread`)
 
-Finally, ensure the `disconnect` method properly closes the connection to your hardware.
+*   **Goal:** The `SerialReaderThread` exists because the Arduino sends messages (like "System ready") at its own pace, independently of commands sent from the PC. The thread listens for these messages without freezing the GUI.
 
-*   **What to Replace:** The `self.serial.close()` call.
-*   **What to Add:** The correct disconnection command for your hardware.
-    ```python
-    # EXAMPLE
-    # If using an SDK:
-    if self.stage_device:
-        self.stage_device.disconnect()
-        self.stage_device = None
-
-    # If using a serial connection (this part might stay the same):
-    if self.serial and self.serial.is_open:
-        self.serial.close()
-    
-    self.is_connected = False
-    self.is_homed = False
-    self.status_update.emit("Disconnected from stage controller.")
-    ```
-
-By following these four steps, you can successfully replace the Arduino-specific logic within the `StageController` to support your custom hardware while ensuring full compatibility with the main application GUI.
+*   **Does Your Hardware Need This?**
+    *   **NO (Synchronous Communication):** If your hardware's commands (like `stage.home()`) are *blocking*—meaning your Python code waits until the action is finished before continuing—then you **do not need a reader thread**. You can safely delete the `SerialReaderThread` class and all references to it (`_start_reader_thread`, `_handle_serial_data`). This is the simpler and more common scenario for commercial SDKs.
+    *   **YES (Asynchronous Communication):** If your hardware sends back status messages or error codes spontaneously, you will need a similar mechanism. You would keep the thread but modify the `_handle_serial_data` method to parse the specific messages your device sends.
 
 ## 14. Contributing
 
