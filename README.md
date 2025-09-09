@@ -38,7 +38,9 @@
   - [B. Testing the Analysis Tools](#b-testing-the-analysis-tools)
 - [11. Usage Workflow](#11-usage-workflow)
 - [12. Output Data Format: HDF5 Structure](#12-output-data-format-hdf5-structure)
-- [13. Adapting the Stage Controller for Custom Hardware](#13-adapting-the-stage-controller-for-custom-hardware)
+- [13. Adapting for Custom Hardware](#13-adapting-for-custom-hardware)
+  - [A. Adapting the Stage Controller](#a-adapting-the-stage-controller)
+  - [B. Adapting the Camera Controller](#b-adapting-the-camera-controller)
 - [14. Contributing](#14-contributing)
 - [15. License](#15-license)
 - [16. Acknowledgments & Citation](#16-acknowledgments--citation)
@@ -324,7 +326,13 @@ The HSI Control Suite produces a single, comprehensive HDF5 file for each scan, 
 
 ---
 
-## 13. Adapting the Stage Controller for Custom Hardware
+## 13. Adapting for Custom Hardware
+
+The HSI Control Suite is intentionally designed with a modular architecture to facilitate its use in diverse laboratory settings. Both the camera and stage controllers function as **Hardware Abstraction Layers (HALs)**. This means they encapsulate all hardware-specific communication logic, presenting a simple, consistent interface to the main application. You can replace the default implementations to support different hardware without altering the core GUI code.
+
+This section provides a guide for adapting both the stage and camera controllers.
+
+### A. Adapting the Stage Controller
 
 The HSI Control Suite is intentionally designed to be modular. The `StageController` class in `hardware/stage_controller.py` acts as a "translator" between the main graphical user interface (GUI) and the physical linear stage. This design allows you to replace the default Arduino-based control logic with a new implementation for your specific hardware (e.g., a commercial stage from Thorlabs, Zaber, Newport, etc.) without modifying the rest of the application.
 
@@ -449,6 +457,181 @@ To function correctly, the main application requires the `StageController` to pr
 *   **Does Your Hardware Need This?**
     *   **NO (Synchronous Communication):** If your hardware's commands (like `stage.home()`) are *blocking*—meaning your Python code waits until the action is finished before continuing—then you **do not need a reader thread**. You can safely delete the `SerialReaderThread` class and all references to it (`_start_reader_thread`, `_handle_serial_data`). This is the simpler and more common scenario for commercial SDKs.
     *   **YES (Asynchronous Communication):** If your hardware sends back status messages or error codes spontaneously, you will need a similar mechanism. You would keep the thread but modify the `_handle_serial_data` method to parse the specific messages your device sends.
+
+### B. Adapting the Camera Controller
+
+Similar to the stage controller, the `CameraController` class in `camera_controller.py` is a hardware abstraction layer. It encapsulates all the complex, hardware-specific logic for communicating with a FLIR camera via the Spinnaker SDK. This modular design allows you to substitute the default implementation to support other cameras—such as those from Basler (using Pylon), Allied Vision (using Vimba), or even a standard webcam (using OpenCV)—without altering the main application's code.
+
+This guide explains the purpose of each key method in the `CameraController` and the requirements your new code must meet to integrate a different camera system.
+
+#### The "API Contract": What the GUI Expects
+
+The main application relies on the `CameraController` to provide a consistent interface for camera operations. To ensure drop-in compatibility, your custom controller class must honor this "API contract."
+
+**Your custom controller MUST provide:**
+
+*   **Methods:**
+    *   `connect()`
+    *   `disconnect()`
+    *   `set_exposure_time(exposure_us)`
+    *   `start_live_view()`
+    *   `stop_live_view()`
+*   **Signals (must be defined in your class):**
+    *   `status_update(str)`: For sending log messages.
+    *   `new_live_frame(object)`: Emits a new camera frame as a NumPy array. **This is the most critical signal for all visual feedback.**
+    *   `exposure_time_updated(float)`: Emits the actual exposure value after it has been set.
+    *   `connection_lost(str)`: For error handling.
+
+The aggregation and bulk acquisition features rely on the fundamental methods listed above. If you implement them correctly, the more advanced features will function automatically.
+
+---
+
+### Step-by-Step Modification Guide
+
+#### 1. The `connect()` Method
+
+*   **Goal:** To find the camera, establish a connection, and configure it to a known default state (e.g., continuous acquisition mode, monochrome pixel format).
+
+*   **What to Replace:** The entire body of the `connect()` method. The current code is entirely Spinnaker-specific, using `System.GetInstance()`, `GetCameras()`, and `cam.Init()`.
+
+*   **Your Replacement Code Must:**
+    1.  Use the appropriate library (e.g., `pylon`, `cv2`, or a vendor SDK) to detect and initialize your camera.
+    2.  Configure the camera to a state suitable for this application: typically continuous frame acquisition and a monochrome pixel format (e.g., `Mono8`).
+    3.  Set the internal state flag `self.is_connected = True`.
+    4.  Emit `status_update` signals to inform the user of the connection progress.
+    5.  Return `True` on success and `False` on failure.
+
+*   **Example (using OpenCV for a generic USB camera):**
+    ```python
+    import cv2
+    
+    # In your modified CameraController class
+    def connect(self):
+        try:
+            # Step 1: Initialize the camera (0 is usually the default webcam)
+            self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW) 
+            if not self.cap.isOpened():
+                self.status_update.emit("Error: Could not open video stream.")
+                return False
+
+            # Step 2: Configure camera properties
+            self.cap.set(cv2.CAP_PROP_CONVERT_RGB, 0) # Request grayscale frames
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+            # Step 3 & 4: Update state and notify user
+            self.is_connected = True
+            self.status_update.emit("Generic USB camera connected successfully.")
+            
+            # Step 5: Return success
+            return True
+        except Exception as e:
+            self.status_update.emit(f"Camera connection error: {e}")
+            return False
+    ```
+
+#### 2. Camera Parameter Control (e.g., `set_exposure_time`)
+
+*   **Goal:** To provide a standardized way for the GUI to control camera settings. The most important setting is exposure time.
+
+*   **What to Replace:** The body of `set_exposure_time()`. The current code manipulates Spinnaker's GenICam nodes (`CFloatPtr`, `SetValue`). This is highly specific.
+
+*   **Your Replacement Code Must:**
+    1.  Accept the exposure time in **microseconds** (`exposure_us`), as this is the unit the GUI uses.
+    2.  Use your camera's API to set the exposure. You may need to convert the units (e.g., to milliseconds).
+    3.  After setting the value, read it back from the hardware to get the *actual* value set, as cameras often adjust to the nearest valid setting.
+    4.  **Crucially, it must emit the `exposure_time_updated` signal** with the actual value. This keeps the GUI slider synchronized with the hardware.
+
+*   **Example (using OpenCV):**
+    ```python
+    def set_exposure_time(self, exposure_us: float):
+        if not self.is_connected: return False
+        try:
+            # Step 1 & 2: Convert units and set value
+            # OpenCV's exposure property is an exponent (-7 corresponds to ~7.8ms)
+            # This is just an example; your SDK will have a more direct method.
+            # For a real SDK, it might be: self.cam_device.Exposure.SetValue(exposure_us)
+            
+            # For OpenCV, we'll pretend we can set it in ms
+            exposure_ms = exposure_us / 1000.0
+            self.cap.set(cv2.CAP_PROP_EXPOSURE, exposure_ms)
+
+            # Step 3 & 4: Read back the value and emit the signal
+            actual_exposure_ms = self.cap.get(cv2.CAP_PROP_EXPOSURE)
+            actual_exposure_us = actual_exposure_ms * 1000.0
+            self.exposure_time_updated.emit(actual_exposure_us) # CRITICAL
+            
+            self.status_update.emit(f"Exposure set to {actual_exposure_us:.2f} µs.")
+            return True
+        except Exception as e:
+            self.status_update.emit(f"Error setting exposure: {e}")
+            return False
+    ```
+
+#### 3. Frame Acquisition (`start_live_view`, `stop_live_view`, and `_capture_frame_for_processing`)
+
+*   **Goal:** This set of methods controls the flow of images from the camera to the application. `start/stop_live_view` turns the stream on and off, while `_capture_frame_for_processing` is the workhorse that grabs each individual frame.
+
+*   **What to Replace:** The Spinnaker-specific calls within these three methods.
+    *   In `start/stop_live_view`: `cam.BeginAcquisition()` and `cam.EndAcquisition()`.
+    *   In `_capture_frame_for_processing`: The entire `try...except` block containing `cam.GetNextImage()`, `GetNDArray()`, and `Release()`.
+
+*   **Your Replacement Code Must:**
+    1.  In `start_live_view()`: Contain the command to start your camera's video stream. The use of a `QTimer` to periodically call `_capture_frame_for_processing` is a hardware-agnostic pattern and should be kept.
+    2.  In `stop_live_view()`: Contain the command to stop the stream.
+    3.  In `_capture_frame_for_processing()`: This is the most important part. This method must perform a single action: **grab one frame from the camera and emit it as a NumPy array via the `new_live_frame` signal.** If this works, the live view, real-time correction, and aggregation will all function correctly.
+
+*   **Example (using OpenCV):**
+    ```python
+    # In start_live_view():
+    # No specific command needed for OpenCV, opening the stream is enough.
+    # Just start the QTimer.
+    self._live_view_timer.start()
+    self.status_update.emit("Live view started.")
+
+    # In stop_live_view():
+    self._live_view_timer.stop()
+    self.status_update.emit("Live view stopped.")
+
+    # In _capture_frame_for_processing():
+    def _capture_frame_for_processing(self):
+        try:
+            ret, frame = self.cap.read() # Grab one frame
+            if ret:
+                # OpenCV returns BGR by default, convert to grayscale
+                gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                
+                # The contract: emit a NumPy array
+                self.new_live_frame.emit(gray_frame)
+        except Exception:
+            self.connection_lost.emit("Camera disconnected during capture.")
+            self.stop_live_view()
+    ```
+
+#### 4. The `disconnect()` Method
+
+*   **Goal:** To release the camera hardware and clean up all associated resources.
+
+*   **What to Replace:** The entire body of the method, which contains Spinnaker-specific de-initialization and cleanup calls.
+
+*   **Your Replacement Code Must:**
+    1.  Call the function from your camera's API to release the hardware.
+    2.  Reset the internal state flag: `self.is_connected = False`.
+
+*   **Example (using OpenCV):**
+    ```python
+    def disconnect(self):
+        if self.is_acquiring:
+            self.stop_live_view()
+        
+        if hasattr(self, 'cap') and self.cap.isOpened():
+            self.cap.release() # Release the camera hardware
+        
+        self.is_connected = False
+        self.status_update.emit("Camera disconnected.")
+    ```
+
+By methodically replacing the Spinnaker-specific logic while adhering to the established API contract, you can integrate virtually any machine vision camera into the HSI Control Suite.
 
 ## 14. Contributing
 
