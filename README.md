@@ -38,9 +38,10 @@
   - [B. Testing the Analysis Tools](#b-testing-the-analysis-tools)
 - [11. Usage Workflow](#11-usage-workflow)
 - [12. Output Data Format: HDF5 Structure](#12-output-data-format-hdf5-structure)
-- [13. Contributing](#13-contributing)
-- [14. License](#14-license)
-- [15. Acknowledgments & Citation](#15-acknowledgments--citation)
+- [13. Adapting the Stage Controller for Custom Hardware](#13-adapting-the-stage-controller-for-custom-hardware)
+- [14. Contributing](#14-contributing)
+- [15. License](#15-license)
+- [16. Acknowledgments & Citation](#16-acknowledgments--citation)
 
 ---
 
@@ -321,7 +322,191 @@ The HSI Control Suite produces a single, comprehensive HDF5 file for each scan, 
 │                   Shape: (scan_length_pixels, spatial_width_pixels)
 ```
 
-## 13. Contributing
+---
+
+### 13. Adapting the Stage Controller for Custom Hardware
+
+The HSI Control Suite is designed to be adaptable. If your laboratory uses a different linear stage—such as a commercial model from Thorlabs, Zaber, or another manufacturer—you can modify the `StageController` class to control it. The key is to change the *internal* logic of the class while keeping its *external* interface (the methods and signals the main GUI calls) the same.
+
+This guide outlines the specific parts of the `hardware/stage_controller.py` file you will need to modify.
+
+#### The Core Task: Translate Commands
+
+Your primary goal is to make the `StageController` class "speak" the language of your new hardware. The main application will still send it the same simple commands (e.g., `move_to(position=150, speed=500)`), and your modified code will be responsible for translating those commands into the specific format your new stage understands (e.g., a different serial command, a call to a manufacturer's SDK, etc.).
+
+---
+
+#### Step-by-Step Modification Guide
+
+Follow these steps to adapt the `StageController` class.
+
+##### Step 1: Modify the Connection Logic (`connect` method)
+
+The current `connect` method is written specifically to find and communicate with an Arduino. You must replace this with the connection procedure for your hardware.
+
+*   **What to Replace:** The entire contents of the `connect` and `_find_arduino_port` methods. The logic that scans COM ports for "arduino" and opens a `pyserial` connection is specific to the current setup.
+    ```python
+    # In the connect method:
+    # REMOVE THIS ARDUINO-SPECIFIC LOGIC
+    port = self._find_arduino_port()
+    if not port:
+        self.status_update.emit("Error: Arduino controller not found.")
+        return False
+    try:
+        self.serial = serial.Serial(port, 9600, timeout=0.1)
+        time.sleep(2) # This delay for Arduino reset is likely not needed
+        # ... and the rest of the try/except block
+    ```
+
+*   **What to Add:** The logic required to connect to your new hardware.
+    *   **If your stage uses a vendor SDK (e.g., Thorlabs Kinesis, Zaber Motion Library):**
+        ```python
+        # EXAMPLE for a hypothetical SDK
+        try:
+            from vendor_sdk import Stage
+            self.stage_device = Stage.connect("device_serial_number") # Connect via SDK
+            self.stage_device.enable()
+            self.stage_device.home() # Command the stage to home
+            
+            self.is_connected = True
+            self.status_update.emit("Successfully connected to [Your Stage Name].")
+            
+            # CRITICAL: Once homing is complete, you MUST emit this signal
+            self.is_homed = True
+            self.homing_complete.emit()
+            
+            return True
+        except Exception as e:
+            self.status_update.emit(f"Error connecting to [Your Stage Name]: {e}")
+            return False
+        ```
+    *   **If your stage uses simple ASCII commands over serial:**
+        ```python
+        # EXAMPLE for an ASCII-based controller
+        try:
+            # You might connect to a fixed COM port
+            self.serial = serial.Serial('COM4', 9600, timeout=1) 
+            self.serial.write(b"HOME\n") # Send homing command
+            response = self.serial.readline().decode()
+            if "OK" in response:
+                self.is_connected = True
+                self.is_homed = True
+                self.status_update.emit("Successfully connected to stage on COM4.")
+                self.homing_complete.emit() # Signal that it's ready
+                return True
+            else:
+                # Handle error
+                return False
+        except serial.SerialException as e:
+            self.status_update.emit(f"Error: {e}")
+            return False
+        ```
+
+##### Step 2: Modify the Movement Command (`move_to` method)
+
+This is the most important method. The GUI sends a normalized `position` (10-250) and `speed` (50-1000). You must translate these abstract values into the physical units your stage understands (e.g., millimeters, steps, etc.).
+
+*   **What to Replace:** The binary packing logic inside the `try` block.
+    ```python
+    # In the move_to method:
+    # REMOVE THIS ARDUINO-SPECIFIC LOGIC
+    command_packet = struct.pack('<BH', position, speed)
+    self.serial.write(command_packet)
+    ```
+
+*   **What to Add:** The logic to translate the normalized values and send the command to your hardware. You will need to determine the physical travel range of your stage (e.g., 0 to 100 mm).
+
+    ```python
+    # EXAMPLE: Mapping normalized values to a physical stage (0-100mm range)
+    
+    # Define your stage's physical limits (you can set these in __init__)
+    MIN_PHYSICAL_POS = 0.0  # e.g., in mm
+    MAX_PHYSICAL_POS = 100.0 # e.g., in mm
+    
+    # --- Inside the move_to method ---
+    
+    # 1. Map the normalized position (10-250) to your physical range
+    # This is a simple linear mapping (y = mx + c)
+    normalized_input_range = 250 - 10
+    physical_range = MAX_PHYSICAL_POS - MIN_PHYSICAL_POS
+    scale_factor = physical_range / normalized_input_range
+    target_physical_pos = MIN_PHYSICAL_POS + ((position - 10) * scale_factor)
+
+    # 2. Map the normalized speed (50-1000) similarly if needed
+    # (Or you can just pass the speed value if your SDK handles it)
+    target_physical_speed = speed # This might require scaling too
+    
+    # 3. Send the command to your hardware
+    try:
+        # If using an SDK:
+        self.stage_device.move_to(target_physical_pos, speed=target_physical_speed)
+        
+        # If using ASCII commands:
+        # command = f"GOTO {target_physical_pos:.2f} F{target_physical_speed}\n"
+        # self.serial.write(command.encode())
+        
+        self.status_update.emit(f"Command sent: Move to {target_physical_pos:.2f} mm.")
+    
+    except Exception as e:
+        self.status_update.emit(f"Error sending command: {e}")
+        self.connection_lost.emit()
+    ```
+
+##### Step 3: Modify or Remove the Feedback Handling
+
+The current implementation uses a separate thread (`SerialReaderThread`) to listen for messages like "System ready" from the Arduino. Your hardware may not need this.
+
+*   **Scenario A: Your hardware provides instant feedback (synchronous).**
+    If your `connect()` or `move_to()` commands block until the action is complete, you likely **do not need the reader thread**.
+    1.  You can remove the `_start_reader_thread`, `_handle_serial_data` methods and the `SerialReaderThread` class entirely.
+    2.  In the `connect` method, simply call your hardware's homing function and, once it returns, emit `self.homing_complete.emit()`.
+    3.  In the `disconnect` method, remove the lines that stop the thread.
+
+*   **Scenario B: Your hardware provides asynchronous feedback.**
+    If your stage sends messages back at unpredictable times (like the Arduino), you will need to adapt the feedback handler.
+    1.  Keep the `SerialReaderThread` (or a similar mechanism).
+    2.  Modify the `_handle_serial_data` method to parse the specific messages your hardware sends.
+        ```python
+        # In _handle_serial_data method:
+        # REPLACE THIS LOGIC
+        if "System ready" in data:
+            self.is_homed = True
+            self.homing_complete.emit()
+            
+        # WITH LOGIC FOR YOUR HARDWARE
+        # For example:
+        if "Homing Complete" in data:
+            self.is_homed = True
+            self.homing_complete.emit()
+        elif "Error: Limit Hit" in data:
+            self.status_update.emit("Hardware Error: A limit switch was triggered unexpectedly.")
+        ```
+
+##### Step 4: Modify the `disconnect` Method
+
+Finally, ensure the `disconnect` method properly closes the connection to your hardware.
+
+*   **What to Replace:** The `self.serial.close()` call.
+*   **What to Add:** The correct disconnection command for your hardware.
+    ```python
+    # EXAMPLE
+    # If using an SDK:
+    if self.stage_device:
+        self.stage_device.disconnect()
+        self.stage_device = None
+
+    # If using a serial connection (this part might stay the same):
+    if self.serial and self.serial.is_open:
+        self.serial.close()
+    
+    self.is_connected = False
+    self.is_homed = False
+    self.status_update.emit("Disconnected from stage controller.")
+    ```
+
+By following these four steps, you can successfully replace the Arduino-specific logic within the `StageController` to support your custom hardware while ensuring full compatibility with the main application GUI.
+
+## 14. Contributing
 
 Contributions are welcome! If you would like to contribute to the project, please follow these steps:
 1.  Fork the repository.
@@ -332,11 +517,11 @@ Contributions are welcome! If you would like to contribute to the project, pleas
 
 Please report any bugs or suggest features by opening an issue on the GitHub repository.
 
-## 14. License
+## 15. License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 15. Acknowledgments & Citation
+## 16. Acknowledgments & Citation
 
 This research was supported by the Undergraduate Research Office and Electrical Engineering Department at King Fahd University of Petroleum and Minerals (KFUPM) through the KFUPM Inbound Summer Research Program (T243).
 
